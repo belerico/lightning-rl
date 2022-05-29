@@ -28,5 +28,5 @@ The flow of the applications is as follows:
 # TODOs
 
 * [ ] Add logging to Tensorboard or similar
-* [ ] Add multiple Workers and Player
+* [x] Add multiple Workers and Player
   * [ ] Find a way to sync gradients of trainer workers before sending updated weights to the Players

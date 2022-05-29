@@ -48,14 +48,16 @@ class Trainer(L.LightningWork):
         # Path to save model state
         self.agent_state_dir = agent_state_dir
         os.makedirs(agent_state_dir, exist_ok=True)
-        self.model_state_dict_path = Path(os.path.join(agent_state_dir, "model_state_dict_" + str(agent_id)))
+        self.model_state_dict_path = Path(os.path.join(agent_state_dir, "model_state_dict_" + str(agent_id) + ".pt"))
 
     def run(self, signal: int, buffer: Payload):
         print("Trainer: training episode {}".format(self.episode_counter))
         buffer = buffer.value
 
         if self._agent is None:
-            model = hydra.utils.instantiate(self._model_cfg, input_dim=buffer.observations.shape[1], action_dim=self.action_dim)
+            model = hydra.utils.instantiate(
+                self._model_cfg, input_dim=buffer.observations.shape[1], action_dim=self.action_dim
+            )
             optimizer = hydra.utils.instantiate(self._optimizer_cfg, model.parameters())
             self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=optimizer)
 
