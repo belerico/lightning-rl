@@ -130,6 +130,7 @@ dmypy.json
 
 
 demos/mnist
-agent_data/
+agent_state/
+replay_buffer
 .storage/
 .shared/

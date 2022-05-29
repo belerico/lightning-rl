@@ -1,21 +1,29 @@
 import lightning as L
 
-from demos.a2c_demo.gym.player import GymWorker
-from demos.a2c_demo.trainer.trainer import TrainWorker
+from demos.a2c_demo.gym.player import Player
+from demos.a2c_demo.trainer.trainer import Trainer
 
 
 class TrainDeploy(L.LightningFlow):
-    def __init__(self, worker: GymWorker, trainer: TrainWorker):
+    def __init__(self, player: Player, trainer: Trainer, max_episodes: int = 1000):
         super().__init__()
-        self.gym_worker = worker
-        self.train_worker = trainer
+        player.model_state_dict_path = trainer.model_state_dict_path
+        trainer.action_dim = player.action_dim
+        self.player = player
+        self.trainer = trainer
+        self.max_episodes = max_episodes
 
     def run(self):
-        self.gym_worker.run()
-        self.train_worker.run()
+        if not self.trainer.has_started or (not self.trainer.is_running and self.trainer.has_succeeded):
+            self.player.run(self.trainer.episode_counter)
+        if not self.player.is_running and self.player.has_succeeded:
+            self.trainer.run(self.player.episode_counter, self.player.replay_buffer)
+        if self.trainer.episode_counter >= self.max_episodes:
+            self.player.stop()
+            self.trainer.stop()
 
 
 if __name__ == "__main__":
-    worker = GymWorker("LunarLander-v2")
-    trainer = TrainWorker(agent_data_path=worker.output_data_path, agent_sizes_path=worker.output_sizes_path)
-    app = L.LightningApp(TrainDeploy(worker, trainer))
+    player = Player("LunarLander-v2", run_once=True)
+    trainer = Trainer(run_once=True)
+    app = L.LightningApp(TrainDeploy(player, trainer, max_episodes=500))

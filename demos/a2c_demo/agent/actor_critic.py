@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -35,7 +35,6 @@ class A2CAgent:
         clip_gradients: Optional[float] = 0.0,
         rewards_gamma: np.ndarray = np.array([0.99]),
         normalize_returns: bool = True,
-        normalize_advantages: bool = True,
     ):
         super(A2CAgent, self).__init__()
 
@@ -56,7 +55,6 @@ class A2CAgent:
         # Rewards
         self.rewards_gamma = rewards_gamma
         self.normalize_returns = normalize_returns
-        self.normalize_advantages = normalize_advantages
 
         # Checkpointing
         # TODO: add checkpointing for the model
@@ -122,10 +120,10 @@ class A2CAgent:
         """
         action_probs, value = self.model(observation)
         dist = self.distribution(probs=action_probs)
-        log_probs = dist.log_prob(actions)
+        log_probs = dist.log_prob(actions.squeeze(1))
         return log_probs, value
 
-    def compute_returns(self, rewards: np.ndarray) -> np.ndarray:
+    def compute_returns(self) -> np.ndarray:
         """Compute discounted returns
 
         Args:
@@ -137,20 +135,25 @@ class A2CAgent:
         np.ndarray: the array of discounted rewards of shape Tx1 if `reduction` is "sum" or "mean",
         of shape TxNr otherwise.
         """
-        assert rewards.shape[0] == len(
-            self.rewards_gamma
-        ), "The number of gammas {} must be equal to the number of rewards {} for every step".format(
-            len(self.rewards_gamma), rewards.shape[0]
-        )
+        rewards = self.replay_buffer.rewards
+        dones = self.replay_buffer.dones
+
+        n_steps = rewards.shape[0]
         returns = np.zeros(rewards.shape)
         R = np.zeros(self.rewards_gamma.shape)
-        n_steps = rewards.shape[1]
-        for i, r in enumerate(rewards[:, ::-1].T):
-            R = r + self.rewards_gamma * R
-            returns[:, n_steps - i - 1] = R
-        returns = np.sum(returns, axis=0)
+
+        for step in reversed(range(n_steps)):
+            r = rewards[step, :]
+            R = r + self.rewards_gamma * R * (1 - dones[step, :])
+            returns[step, :] = R
+
+        returns = np.sum(returns, axis=1, keepdims=True)
+
         if self.normalize_returns:
-            returns = (returns - np.mean(returns)) / (np.std(returns, ddof=1) + 1e-8)
+            returns = (returns - np.mean(returns, axis=0, keepdims=True)) / (
+                np.std(returns, ddof=1, axis=0, keepdims=True) + 1e-8
+            )
+
         return returns
 
     @torch.no_grad()
@@ -169,89 +172,74 @@ class A2CAgent:
             self.scheduler.step()
         return grad_norm
 
-    # TODO: wrap the agent into a LightningModule
-    def compute_loss(self) -> torch.Tensor:
-        """Compute the loss.
+    def before_backward(self):
+        self.optimizer.zero_grad(set_to_none=True)
 
-        Returns:
-            torch.Tensor: Returns loss.
-        """
-        # Get returns
-        returns = self.compute_returns(self.replay_buffer.rewards)
-        returns = torch.from_numpy(returns)
+    def after_backward(self):
+        pass
 
-        num_samples = len(returns)
+    def backward(self, loss: torch.Tensor):
+        self.before_backward()
+        loss.backward()
+        self.after_backward()
+
+    def get_returns_and_advantages(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        returns = self.compute_returns()
+        advantages = returns - self.replay_buffer.values
+        returns = torch.from_numpy(returns).float()
+        advantages = torch.from_numpy(advantages).float()
+        return returns, advantages
+
+    def get_slices_and_indexes(self, num_samples: int) -> Tuple[List[int], List[int]]:
         slices = list(range(0, num_samples + 1, self.batch_size))
         if num_samples % self.batch_size != 0:
             slices += [num_samples]
         elif len(slices) == 1 and slices[0] == 0:
             slices.append(num_samples)
         idxes = list(range(num_samples))
-        if self.shuffle:
-            rng = np.random.default_rng()
-            rng.shuffle(idxes)
+        return slices, idxes
 
-        # Train loop
+    def compute_loss(self) -> Optional[torch.Tensor]:
+        """Compute the loss."""
+
+        # Get returns
+        returns, advantages = self.get_returns_and_advantages()
+
+        # Get slices and indexes for batching
+        slices, idxes = self.get_slices_and_indexes(len(returns))
+
         total_value_loss = 0
         total_policy_loss = 0
         for batch_num in range(len(slices) - 1):
             batch_idxes = idxes[slices[batch_num] : slices[batch_num + 1]]
-            observation, _, _, game_actions, _ = self.replay_buffer[batch_idxes]
-            for game_action_idx, game_action in enumerate(game_actions):
-                game_actions[game_action_idx] = game_action
+            buffer_data = self.replay_buffer[batch_idxes]
+            observation = buffer_data["observations"]
+            game_actions = buffer_data["actions"]
 
-            _, agent_action_dists, critic_value, next_state = self.select_action(observation, next_state)
+            log_probs, values = self.evaluate_action(observation, game_actions)
+            total_policy_loss -= (log_probs.unsqueeze(1) * advantages[batch_idxes]).sum()
+            total_value_loss += F.smooth_l1_loss(values, returns[batch_idxes], reduction="sum")
 
-            ret = returns[batch_idxes]
-            advantage = ret - critic_value.detach()
-
-            policy_loss = 0
-            for i in range(len(game_actions)):
-                policy_loss -= agent_action_dists[i].log_prob(game_actions[i]) * advantage
-            total_policy_loss += policy_loss.sum() / num_samples
-            total_value_loss += F.smooth_l1_loss(critic_value, ret, reduction="sum") / num_samples
         loss = total_policy_loss + total_value_loss
+
+        # Backward pass
+        self.backward(loss)
+
+        # Clip gradients + optimizer step
+        self.optimize_step()
+
         return loss
 
-    def read_agent_data(self):
-        # Read agent data from Path (shared) object
-        pass
-
-    def train_step(self) -> None:
+    def train_step(self) -> Tuple[torch.Tensor, np.ndarray]:
         """Run the forward and backward passes."""
-
-        # TODO: Read agent data and set the replay buffer
-        # TODO: Read `data_size` from state propagation
-        agent_data = self.read_agent_data()
-
-        # TODO: Read `block_sizes` from state propagation
-        # TODO: Read `steps_num` from state propagation
-        steps_num = 0
-        block_sizes = []
-        self.replay_buffer = RolloutBuffer.from_array(agent_data, block_sizes=block_sizes, steps_num=steps_num)
 
         # Compute loss
         agent_loss = self.compute_loss()
-
-        # Backward pass
-        self.optimizer.zero_grad(set_to_none=True)
-        agent_loss.backward()
-
-        # Clip gradients + optimizer step
-        grad_norm = self.optimize_step()
-
-        # Populate output queue
         self.episode_counter += 1
 
         # TODO: Log everything
         # self.log(agent_loss)
         # self.log(grad_norm)
 
-    def get_work(self):
-        pass
+        return agent_loss.item(), np.sum(self.replay_buffer.rewards)
 
-    def train(self):
-        while True:
-            # Wait until there's something to work on
-            work = self.get_work()
-            self.train_step()
