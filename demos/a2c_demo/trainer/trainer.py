@@ -41,9 +41,7 @@ class Trainer(L.LightningWork):
         self._agent_cfg = agent_cfg
         self.agent_id = agent_id
         self._model_cfg = model_cfg
-        self._model = None
         self._optimizer_cfg = optimizer_cfg
-        self._optimizer = None
 
         self.episode_counter = 0
 
@@ -56,12 +54,10 @@ class Trainer(L.LightningWork):
         print("Trainer: training episode {}".format(self.episode_counter))
         buffer = buffer.value
 
-        if self._model is None:
-            self._model = hydra.utils.instantiate(self._model_cfg, input_dim=buffer.observations.shape[1], action_dim=self.action_dim)
-        if self._optimizer is None:
-            self._optimizer = hydra.utils.instantiate(self._optimizer_cfg, self._model.parameters())
         if self._agent is None:
-            self._agent = hydra.utils.instantiate(self._agent_cfg, model=self._model, optimizer=self._optimizer)
+            model = hydra.utils.instantiate(self._model_cfg, input_dim=buffer.observations.shape[1], action_dim=self.action_dim)
+            optimizer = hydra.utils.instantiate(self._optimizer_cfg, model.parameters())
+            self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=optimizer)
 
         self._agent.replay_buffer = buffer
         print("Trainer: training agent")

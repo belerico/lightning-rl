@@ -41,10 +41,10 @@ class Player(L.LightningWork):
         self.environment_id = environment_id
         self.observation_size, self.action_dim = Player.get_env_info(environment_id)
 
-        self._model_cfg = model_cfg
-        self._model = hydra.utils.instantiate(self._model_cfg, input_dim=self.observation_size, action_dim=self.action_dim)
+        model_cfg = model_cfg
+        model = hydra.utils.instantiate(model_cfg, input_dim=self.observation_size, action_dim=self.action_dim)
         self._agent_cfg = agent_cfg
-        self._agent = hydra.utils.instantiate(self._agent_cfg, model=self._model, optimizer=None)
+        self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=None)
 
         # Agent
         self.agent_id = agent_id
