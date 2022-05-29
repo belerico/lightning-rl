@@ -134,3 +134,4 @@ agent_state/
 replay_buffer
 .storage/
 .shared/
+logs/

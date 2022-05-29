@@ -1,8 +1,10 @@
 from typing import Optional, Tuple
 
 import gym
+import hydra
 import lightning as L
 import numpy as np
+import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
@@ -27,27 +29,32 @@ class Player(L.LightningWork):
     def __init__(
         self,
         environment_id: str,
+        agent_cfg: omegaconf.DictConfig,
+        model_cfg: omegaconf.DictConfig,
         model_state_dict_path: Optional[Path] = None,
         agent_id: int = 0,
         **worker_kwargs
     ) -> None:
         super(Player, self).__init__(worker_kwargs)
-
         # Game
         self.replay_buffer = None  # Payload
         self.environment_id = environment_id
         self.observation_size, self.action_dim = Player.get_env_info(environment_id)
+
+        self._model_cfg = model_cfg
+        self._model = hydra.utils.instantiate(self._model_cfg, input_dim=self.observation_size, action_dim=self.action_dim)
+        self._agent_cfg = agent_cfg
+        self._agent = hydra.utils.instantiate(self._agent_cfg, model=self._model, optimizer=None)
 
         # Agent
         self.agent_id = agent_id
         self.model_state_dict_path = model_state_dict_path
 
         # Misc
-        self.step_counter = 0
         self.episode_counter = 0
 
     @torch.no_grad()
-    def train_episode(self, agent: A2CAgent) -> RolloutBuffer:
+    def train_episode(self) -> RolloutBuffer:
         """Samples an episode for a single agent in training mode
         Returns:
             Tuple[np.ndarray, list]: Episode data and data sizes for each block of the buffer
@@ -60,7 +67,7 @@ class Player(L.LightningWork):
         buffer_data = {key: [] for key in RolloutBuffer.field_names()}
         while not game_done:
             observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
-            actions, log_probs, values = agent.select_action(observation_tensor)
+            actions, log_probs, values = self._agent.select_action(observation_tensor)
             log_probs = log_probs.numpy()
             values = values[0].numpy()
             actions = actions.numpy()
@@ -98,14 +105,13 @@ class Player(L.LightningWork):
 
     def run(self, signal: int):
         print("Player: playing episode {}".format(self.episode_counter))
-        model = PolicyMLP(self.observation_size, [64, 64], self.action_dim)
         if self.model_state_dict_path.exists():
             print("Player: loading model from {}".format(self.model_state_dict_path))
-            model.load_state_dict(torch.load(self.model_state_dict_path))
-        agent = A2CAgent(model=model, optimizer=None)
+            self.model_state_dict_path.get(overwrite=True)
+            self._model.load_state_dict(torch.load(self.model_state_dict_path))
 
         # Play the game
-        replay_buffer = self.train_episode(agent)
+        replay_buffer = self.train_episode()
         print("Player: episode length: {}".format(len(replay_buffer)))
         self.replay_buffer = Payload(replay_buffer)
 

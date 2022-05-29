@@ -1,6 +1,8 @@
+import hydra
 import lightning as L
+from hydra.experimental import compose, initialize
 
-from demos.a2c_demo.gym.player import Player
+from demos.a2c_demo.player.player import Player
 from demos.a2c_demo.trainer.trainer import Trainer
 
 
@@ -24,6 +26,8 @@ class TrainDeploy(L.LightningFlow):
 
 
 if __name__ == "__main__":
-    player = Player("LunarLander-v2", run_once=True)
-    trainer = Trainer(run_once=True)
-    app = L.LightningApp(TrainDeploy(player, trainer, max_episodes=500))
+    with initialize(config_path="./demos/a2c_demo/configs/"):
+        config = compose(config_name="config.yaml")
+        player = hydra.utils.instantiate(config.player, run_once=True)
+        trainer = hydra.utils.instantiate(config.trainer, run_once=True)
+        app = L.LightningApp(TrainDeploy(player, trainer, max_episodes=500))
