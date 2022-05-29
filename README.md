@@ -24,3 +24,9 @@ The flow of the applications is as follows:
 4. The i-th trainer receives the experience of the i-th player and optimizes its own model (feature extractor, actor and critic). The model is (hopefully) synchronized with [torch.nn.parallel.DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html#torch.nn.parallel.DistributedDataParallel)
 5. The updated model is shared to every one of the players.
 6. Go to 3.
+
+# TODOs
+
+* [ ] Add logging to Tensorboard or similar
+* [ ] Add multiple Workers and Player
+  * [ ] Find a way to sync gradients of trainer workers before sending updated weights to the Players
