@@ -101,7 +101,6 @@ class Player(L.LightningWork):
         model = PolicyMLP(self.observation_size, [64, 64], self.action_dim)
         if self.model_state_dict_path.exists():
             print("Player: loading model from {}".format(self.model_state_dict_path))
-            # self.model_state_dict_path.get(overwrite=True)
             model.load_state_dict(torch.load(self.model_state_dict_path))
         agent = A2CAgent(model=model, optimizer=None)
 

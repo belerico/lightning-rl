@@ -70,4 +70,3 @@ class Trainer(L.LightningWork):
         torch.save(optimizer.state_dict(), self.optimizer_state_dict_path)
 
         self.episode_counter += 1
-        return
