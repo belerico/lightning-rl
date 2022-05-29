@@ -108,7 +108,7 @@ class Player(L.LightningWork):
         if self.model_state_dict_path.exists():
             print("Player: loading model from {}".format(self.model_state_dict_path))
             self.model_state_dict_path.get(overwrite=True)
-            self._model.load_state_dict(torch.load(self.model_state_dict_path))
+            self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
 
         # Play the game
         replay_buffer = self.train_episode()

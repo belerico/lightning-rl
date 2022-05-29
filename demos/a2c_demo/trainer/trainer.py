@@ -70,6 +70,6 @@ class Trainer(L.LightningWork):
 
         # Save model and optim state
         print("Trainer: saving model state dict")
-        torch.save(self._model.state_dict(), self.model_state_dict_path)
+        torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
 
         self.episode_counter += 1
