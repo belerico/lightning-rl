@@ -1,73 +1,70 @@
 import os
-from typing import Optional
-import hydra
 
+import hydra
 import lightning as L
 import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
-from demos.a2c_demo.agent.actor_critic import A2CAgent
-from demos.a2c_demo.model.mlp import PolicyMLP
-
 
 # Simple LightningWorker
 class Trainer(L.LightningWork):
-    """Gym environment worker
+    """Worker that wraps a gym environment and plays in it.
 
     Args:
-        agent (A2CAgent): Agent to interact with the environment
-        agent_id (int): Agent id.
-        agent_data_path (Path): Path to shared agent data.
-        data_sizes_path (Path): PAth to shared agent sizes.
-    Raises:
-        NotImplementedError: If the game mode is not supported
+        input_dim (int): input dimension of the model (the size of the observation space)
+        action_dim (int): the action dimension of the model (the size of the action space)
+        agent_cfg (omegaconf.DictConfig): the agent configuration. The agent specifies the reinforcement learning
+            algorithm to use. For this demo, we use the A2C algorithm (https://arxiv.org/abs/1602.01783).
+        model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
+            that outputs both the policy over actions and the value of the state.
+        optimizer_cfg (omegaconf.DictConfig): the optimizer configuration. By default the Adam optimizer is used.
+        model_state_dict_path (Path): shared path to the model state dict.
+        agent_id (int, optional): the agent id. Defaults to 0.
     """
 
     def __init__(
         self,
+        input_dim: int,
+        action_dim: int,
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
         optimizer_cfg: omegaconf.DictConfig,
+        model_state_dict_path: Path,
         agent_id: int = 0,
-        agent_state_dir: str = "./agent_state",
         **worker_kwargs
-    ) -> None:
+    ) -> None: 
         super(Trainer, self).__init__(worker_kwargs)
-
-        self.action_dim = None
+        self._input_dim = input_dim
+        self._action_dim = action_dim
         self._agent = None
         self._agent_cfg = agent_cfg
         self.agent_id = agent_id
         self._model_cfg = model_cfg
         self._optimizer_cfg = optimizer_cfg
-
+        self.gradients = None  # Payload to be shared
         self.episode_counter = 0
-
-        # Path to save model state
-        self.agent_state_dir = agent_state_dir
-        os.makedirs(agent_state_dir, exist_ok=True)
-        self.model_state_dict_path = Path(os.path.join(agent_state_dir, "model_state_dict_" + str(agent_id) + ".pt"))
+        self.model_state_dict_path = model_state_dict_path
 
     def run(self, signal: int, buffer: Payload):
-        print("Trainer: training episode {}".format(self.episode_counter))
-        buffer = buffer.value
+        if signal > 0:
+            print("Trainer: training episode {}".format(self.episode_counter))
+            buffer.get()
+            buffer = buffer.value
 
-        if self._agent is None:
-            model = hydra.utils.instantiate(
-                self._model_cfg, input_dim=buffer.observations.shape[1], action_dim=self.action_dim
-            )
-            optimizer = hydra.utils.instantiate(self._optimizer_cfg, model.parameters())
-            self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=optimizer)
+            if self._agent is None:
+                model = hydra.utils.instantiate(self._model_cfg, input_dim=self._input_dim, action_dim=self._action_dim)
+                optimizer = hydra.utils.instantiate(self._optimizer_cfg, model.parameters())
+                self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=optimizer)
 
-        self._agent.replay_buffer = buffer
-        print("Trainer: training agent")
-        agent_loss, sum_rewards = self._agent.train_step()
-        print("Trainer: Loss: {:.4f}, Sum of rewards: {:.4f}".format(agent_loss, sum_rewards))
+            if self.model_state_dict_path.exists():
+                print("Trainer: loading synced gradients")
+                self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
 
-        # Save model and optim state
-        print("Trainer: saving model state dict")
-        torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
-
-        self.episode_counter += 1
+            self._agent.replay_buffer = buffer
+            print("Trainer: training agent")
+            agent_loss, sum_rewards, gradients = self._agent.train_step()
+            print("Trainer: Loss: {:.4f}, Sum of rewards: {:.4f}".format(agent_loss, sum_rewards))
+            self.gradients = Payload(gradients)
+            self.episode_counter += 1

@@ -7,6 +7,7 @@ import omegaconf
 
 from demos.a2c_demo.player.player import Player
 from demos.a2c_demo.trainer.trainer import Trainer
+from demos.a2c_demo.optimizer.optimizer import Optimizer
 
 
 class TrainDeploy(L.LightningFlow):
@@ -14,7 +15,7 @@ class TrainDeploy(L.LightningFlow):
         self,
         player_cfg: omegaconf.DictConfig,
         trainer_cfg: omegaconf.DictConfig,
-        num_agents: int = 3,
+        num_agents: int = 4,
         max_episodes: int = 1000,
     ):
         super().__init__()
@@ -22,13 +23,43 @@ class TrainDeploy(L.LightningFlow):
         self.max_episodes = max_episodes
         self._players = []
         self._trainers = []
+        input_dim, action_dim = Player.get_env_info(player_cfg.environment_id)
+        self.optimizer = Optimizer(
+            input_dim,
+            action_dim,
+            num_agents,
+            trainer_cfg.model_cfg,
+            trainer_cfg.optimizer_cfg,
+            run_once=True,
+            parallel=True,
+        )
         for i in range(num_agents):
-            setattr(self, "player_{}".format(i), hydra.utils.instantiate(player_cfg, agent_id=i, run_once=True))
-            setattr(self, "trainer_{}".format(i), hydra.utils.instantiate(trainer_cfg, agent_id=i, run_once=True))
+            setattr(
+                self,
+                "player_{}".format(i),
+                hydra.utils.instantiate(
+                    player_cfg,
+                    agent_id=i,
+                    model_state_dict_path=self.optimizer.model_state_dict_path,
+                    run_once=True,
+                    parallel=True,
+                ),
+            )
+            setattr(
+                self,
+                "trainer_{}".format(i),
+                hydra.utils.instantiate(
+                    trainer_cfg,
+                    input_dim=input_dim,
+                    action_dim=action_dim,
+                    agent_id=i,
+                    model_state_dict_path=self.optimizer.model_state_dict_path,
+                    run_once=True,
+                    parallel=True,
+                ),
+            )
             player = self.get_player(i)
             trainer = self.get_trainer(i)
-            player.model_state_dict_path = trainer.model_state_dict_path
-            trainer.action_dim = player.action_dim
             self._players.append(player)
             self._trainers.append(trainer)
 
@@ -45,15 +76,18 @@ class TrainDeploy(L.LightningFlow):
         return getattr(self, "trainer_{}".format(agent_id))
 
     def run(self):
-        if not any([self._trainers[i].has_started for i in range(self.num_agents)]) or all(
-            [not self._trainers[i].is_running and self._trainers[i].has_succeeded for i in range(self.num_agents)]
-        ):
+        if not any([self._trainers[i].has_started for i in range(self.num_agents)]) or self.optimizer.done:
+            self.optimizer.done = False
             for i in range(self.num_agents):
                 self._players[i].run(self._trainers[i].episode_counter)
-        if all([not self._players[i].is_running and self._players[i].has_succeeded for i in range(self.num_agents)]):
-            for i in range(self.num_agents):
-                self._trainers[i].run(self._players[i].episode_counter, self._players[i].replay_buffer)
+        for i in range(self.num_agents):
+            self._trainers[i].run(self._players[i].episode_counter, self._players[i].replay_buffer)
+        for i in range(self.num_agents):
+            self.optimizer.run(
+                self._trainers[i].episode_counter, self._trainers[i].agent_id, self._trainers[i].gradients
+            )
         if self._trainers[0].episode_counter >= self.max_episodes:
+            self.optimizer.stop()
             for i in range(self.num_agents):
                 self._trainers[i].stop()
                 self._players[i].stop()

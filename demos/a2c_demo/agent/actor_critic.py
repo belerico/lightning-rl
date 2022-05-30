@@ -13,7 +13,7 @@ class A2CAgent:
 
     Args:
         model (torch.nn.Module): model of the Neural Net for the Actor and the Critic.
-        optimizer (torch.optim.Optimizer): optimized for performing the parameters update step after the backward.
+        optimizer (torch.optim.Optimizer): optimizer for performing the parameters update step after the backward.
         scheduler (torch.optim.lr_scheduler._LRScheduler, optional): scheduler for the learning rate decay.
             Default is None.
         batch_size (int, optional): size for the minibatch. Default is 32.
@@ -167,9 +167,9 @@ class A2CAgent:
         grad_norm = None
         if self.clip_gradients is not None and self.clip_gradients > 0:
             grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_gradients)
-        self.optimizer.step()
-        if self.scheduler is not None:
-            self.scheduler.step()
+        # self.optimizer.step()
+        # if self.scheduler is not None:
+        #     self.scheduler.step()
         return grad_norm
 
     def before_backward(self):
@@ -206,7 +206,8 @@ class A2CAgent:
         returns, advantages = self.get_returns_and_advantages()
 
         # Get slices and indexes for batching
-        slices, idxes = self.get_slices_and_indexes(len(returns))
+        num_samples = len(returns)
+        slices, idxes = self.get_slices_and_indexes(num_samples)
 
         total_value_loss = 0
         total_policy_loss = 0
@@ -228,18 +229,20 @@ class A2CAgent:
         # Clip gradients + optimizer step
         self.optimize_step()
 
-        return loss
+        gradients = [p.grad for p in self.model.parameters()]
+        
+        return loss, gradients
 
     def train_step(self) -> Tuple[torch.Tensor, np.ndarray]:
         """Run the forward and backward passes."""
 
         # Compute loss
-        agent_loss = self.compute_loss()
+        agent_loss, gradients = self.compute_loss()
         self.episode_counter += 1
 
         # TODO: Log everything
         # self.log(agent_loss)
         # self.log(grad_norm)
 
-        return agent_loss.item(), np.sum(self.replay_buffer.rewards)
+        return agent_loss.item(), np.sum(self.replay_buffer.rewards), gradients
 

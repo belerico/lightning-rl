@@ -128,10 +128,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
-demos/mnist
-agent_state/
-replay_buffer
 .storage/
 .shared/
+demos/mnist
 logs/
+synced_model/
+replay_buffer
+gradients

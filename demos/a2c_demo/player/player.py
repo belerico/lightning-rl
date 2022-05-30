@@ -1,3 +1,4 @@
+import os
 from typing import Optional, Tuple
 
 import gym
@@ -8,22 +9,23 @@ import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
+import torch.distributed as dist
 
-from demos.a2c_demo.agent.actor_critic import A2CAgent
 from demos.a2c_demo.buffer.rollout import RolloutBuffer
-from demos.a2c_demo.model.mlp import PolicyMLP
 
 
 # Simple LightningWorker
 class Player(L.LightningWork):
-    """Wrapper around a gym environment to play the game.
+    """Worker that wraps a gym environment and plays in it.
 
     Args:
-        environment (gym.Env): Gym environment
-        agent (A2CAgent): Agent to interact with the environment
-        output_path (str, optional): Output path. Defaults to "./".
-    Raises:
-        NotImplementedError: If the game mode is not supported
+        environment_id (str): the gym environment id
+        agent_cfg (omegaconf.DictConfig): the agent configuration. The agent specifies the reinforcement learning
+            algorithm to use. For this demo, we use the A2C algorithm (https://arxiv.org/abs/1602.01783).
+        model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
+            that outputs both the policy over actions and the value of the state.
+        model_state_dict_path (Path): shared path to the model state dict.
+        agent_id (int, optional): the agent id. Defaults to 0.
     """
 
     def __init__(
@@ -31,7 +33,7 @@ class Player(L.LightningWork):
         environment_id: str,
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
-        model_state_dict_path: Optional[Path] = None,
+        model_state_dict_path: Path,
         agent_id: int = 0,
         **worker_kwargs
     ) -> None:
@@ -39,10 +41,10 @@ class Player(L.LightningWork):
         # Game
         self.replay_buffer = None  # Payload
         self.environment_id = environment_id
-        self.observation_size, self.action_dim = Player.get_env_info(environment_id)
+        self.input_dim, self.action_dim = Player.get_env_info(environment_id)
 
         model_cfg = model_cfg
-        model = hydra.utils.instantiate(model_cfg, input_dim=self.observation_size, action_dim=self.action_dim)
+        model = hydra.utils.instantiate(model_cfg, input_dim=self.input_dim, action_dim=self.action_dim)
         self._agent_cfg = agent_cfg
         self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=None)
 
@@ -57,7 +59,7 @@ class Player(L.LightningWork):
     def train_episode(self) -> RolloutBuffer:
         """Samples an episode for a single agent in training mode
         Returns:
-            Tuple[np.ndarray, list]: Episode data and data sizes for each block of the buffer
+            RolloutBuffer: Episode data in a RolloutBuffer
 
         """
         environment = gym.make(self.environment_id)
@@ -114,5 +116,4 @@ class Player(L.LightningWork):
         replay_buffer = self.train_episode()
         print("Player: episode length: {}".format(len(replay_buffer)))
         self.replay_buffer = Payload(replay_buffer)
-
         self.episode_counter += 1

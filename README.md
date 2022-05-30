@@ -30,4 +30,4 @@ The flow of the applications is as follows:
 
 * [ ] Add logging to Tensorboard or similar
 * [x] Add multiple Workers and Player
-  * [ ] Find a way to sync gradients of trainer workers before sending updated weights to the Players
+  * [x] Find a way to sync gradients of trainer workers before sending updated weights to the Players

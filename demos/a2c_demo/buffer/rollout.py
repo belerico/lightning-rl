@@ -73,48 +73,6 @@ class RolloutBuffer(BaseBuffer):
         """Returns the number of steeps in the Buffer"""
         return len(self.observations)
 
-    def to_array(self, dtype: np.dtype = np.dtype(np.float32)) -> Tuple[np.ndarray, List[int]]:
-        """Converts the Buffer to a numpy flattened array"""
-        data_sizes = []
-        data = []
-        for field_name in RolloutBuffer.field_names():
-            field = self.get_field(field_name)
-            if field_name in ["rewards", "actions", "log_probs"]:
-                data.append(field.T.flatten())
-            else:
-                data.append(field.flatten())
-            data_sizes.append(field.size)
-        data = np.concatenate(data)
-        assert data.size == sum(data_sizes)
-
-        return data.astype(dtype), data_sizes
-
-    @staticmethod
-    def from_array(data: np.ndarray, block_sizes: np.ndarray, steps_num: int) -> "RolloutBuffer":
-        """Creates a Buffer from a numpy array
-
-        Args:
-            data (np.ndarray): The data array
-            block_sizes (np.ndarray): The block sizes for observations, values, actions, log_probs and rewards.
-                The sizes are cumulated.
-        Returns:
-            RolloutBuffer: a Buffer object with correctly reshaped obeservations, rewards, actions
-            and actions probabilities
-        """
-
-        assert len(block_sizes) == len(RolloutBuffer.field_names())
-        buffer_dict = {}
-        block_counter = 0
-        for idx, field_name in enumerate(RolloutBuffer.field_names()):
-            values = data[block_counter : block_counter + block_sizes[idx]]
-            if field_name in ["rewards", "actions", "log_probs"]:
-                buffer_dict[field_name] = values.reshape(-1, steps_num).T
-                print(values.reshape(-1, steps_num).T.shape)
-            else:
-                buffer_dict[field_name] = values.reshape(steps_num, -1)
-            block_counter += block_sizes[idx]
-        return RolloutBuffer(**buffer_dict)
-
     def __str__(self) -> str:
         """Returns a string representation of the Buffer"""
         representation = ["RolloutBuffer\n"]
