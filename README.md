@@ -18,16 +18,12 @@ The main components of the application are:
 
 The flow of the applications is as follows:
 
-1. N Player are spawned. Each player has its own agent to run in the environment.
-2. N Trainer
- are spawned.
-3. Each one of the N players plays asynchronously the game collecting and saving the experiences gathered. Once every one of them has finished the control is passed to the trainers.
-4. The i-th trainer receives the experience of the i-th player and optimizes its own model (feature extractor, actor and critic). The model is (hopefully) synchronized with [torch.nn.parallel.DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html#torch.nn.parallel.DistributedDataParallel)
-5. The updated model is shared to every one of the players.
-6. Go to 3.
+1. Each of N Players plays asynchronously the game collecting and saving the experiences gathered. Once every one of them has finished the control is passed to the trainers.
+2. The i-th trainer receives the experience of the i-th player and computes the gradients of the model parameters given the experiences received optimzing the Advantage Actor-Critic loss (A2C). Every trainer collects also training information: losses, gradients norm, episode length, etc. 
+3. The global model is updated by the Optimizer averaging the gradients received by all trainers. The training information are logged through a Tensorboard logger.
 
 # TODOs
 
-* [ ] Add logging to Tensorboard or similar
+* [x] Add logging to Tensorboard or similar
 * [x] Add multiple Workers and Player
   * [x] Find a way to sync gradients of trainer workers before sending updated weights to the Players
