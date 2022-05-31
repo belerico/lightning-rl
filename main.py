@@ -4,9 +4,8 @@ import hydra
 import lightning as L
 import omegaconf
 from hydra.experimental import compose, initialize
-from lightning.storage.path import Path
-from demos.a2c_demo.logger.tensorboard import TensorboardWork
 
+from demos.a2c_demo.logger.tensorboard import TensorboardWork
 from demos.a2c_demo.optimizer.optimizer import Optimizer
 from demos.a2c_demo.player.player import Player
 from demos.a2c_demo.trainer.trainer import Trainer

@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn.functional as F
-from wandb import agent
 
 from demos.a2c_demo.buffer.rollout import RolloutBuffer
 
@@ -224,7 +223,7 @@ class A2CAgent:
         self.backward(loss)
         grad_norm = self.optimize_step()
         self.metrics["Gradients/Agent-{}/grad_norm".format(self.agent_id)] = grad_norm.item()
-        gradients = [p.grad for p in self.model.parameters()]
+        gradients = [p.grad.detach().clone() for p in self.model.parameters()]
 
         return gradients
 

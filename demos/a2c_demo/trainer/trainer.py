@@ -1,4 +1,3 @@
-import os
 
 import hydra
 import lightning as L
@@ -7,7 +6,6 @@ import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
-from pytorch_lightning.loggers import TensorBoardLogger
 
 from . import logger
 

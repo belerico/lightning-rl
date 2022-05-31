@@ -1,5 +1,4 @@
-import os
-from typing import Optional, Tuple
+from typing import Tuple
 
 import gym
 import hydra
@@ -7,7 +6,6 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
-import torch.distributed as dist
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
