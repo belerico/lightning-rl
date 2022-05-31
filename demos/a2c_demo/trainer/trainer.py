@@ -12,7 +12,7 @@ from . import logger
 
 # Simple LightningWorker
 class Trainer(L.LightningWork):
-    """Worker that wraps a gym environment and plays in it.
+    """Worker that train the agent given the observations received by the Players.
 
     Args:
         input_dim (int): input dimension of the model (the size of the observation space)
@@ -21,7 +21,6 @@ class Trainer(L.LightningWork):
             algorithm to use. For this demo, we use the A2C algorithm (https://arxiv.org/abs/1602.01783).
         model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
             that outputs both the policy over actions and the value of the state.
-        optimizer_cfg (omegaconf.DictConfig): the optimizer configuration. By default the Adam optimizer is used.
         model_state_dict_path (Path): shared path to the model state dict.
         agent_id (int, optional): the agent id. Defaults to 0.
     """
@@ -37,10 +36,8 @@ class Trainer(L.LightningWork):
         **worker_kwargs
     ) -> None:
         super(Trainer, self).__init__(worker_kwargs)
-        self._input_dim = input_dim
-        self._action_dim = action_dim
         self.agent_id = agent_id
-        model = hydra.utils.instantiate(model_cfg, input_dim=self._input_dim, action_dim=self._action_dim)
+        model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=None)
         self.gradients = None  # Payload to be shared
         self.episode_counter = 0

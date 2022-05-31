@@ -45,8 +45,7 @@ class Player(L.LightningWork):
 
         model_cfg = model_cfg
         model = hydra.utils.instantiate(model_cfg, input_dim=self.input_dim, action_dim=self.action_dim)
-        self._agent_cfg = agent_cfg
-        self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=None)
+        self._agent = hydra.utils.instantiate(agent_cfg, model=model, optimizer=None)
 
         # Agent
         self.agent_id = agent_id

@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from demos.a2c_demo.buffer.rollout import RolloutBuffer
 
 
-# TODO: wrap the agent into a LightningModule
 class A2CAgent:
     """Initialize the agent.
 
@@ -17,7 +16,6 @@ class A2CAgent:
         scheduler (torch.optim.lr_scheduler._LRScheduler, optional): scheduler for the learning rate decay.
             Default is None.
         batch_size (int, optional): size for the minibatch. Default is 32.
-        shuffle (bool, optional): to shuffle or not the minibatch samples. Default is False.
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
         rewards_gamma (np.ndarray, optional): discount factor parameter. Default is np.array([0.99]).
@@ -31,7 +29,6 @@ class A2CAgent:
         optimizer: Optional[torch.optim.Optimizer] = None,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         batch_size: int = 32,
-        shuffle: bool = False,
         clip_gradients: Optional[float] = 0.0,
         rewards_gamma: np.ndarray = np.array([0.99]),
         normalize_returns: bool = True,
@@ -43,7 +40,6 @@ class A2CAgent:
         self.scheduler = scheduler
         self.distribution = torch.distributions.Categorical
         self.batch_size = batch_size
-        self.shuffle = shuffle
         self.clip_gradients = clip_gradients
         self.episode_counter = 0
         self.returns: Optional[torch.Tensor] = None

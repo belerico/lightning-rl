@@ -12,6 +12,17 @@ from . import logger
 
 
 class Optimizer(L.LightningWork):
+    """Worker that sync the gradients received by the Trainers.
+
+    Args:
+        input_dim (int): input dimension of the model (the size of the observation space)
+        action_dim (int): the action dimension of the model (the size of the action space)
+        num_agents (int): the number of agents
+        model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
+            that outputs both the policy over actions and the value of the state.
+        optimizer_cfg (omegaconf.DictConfig): the optimizer config.
+        save_dir (Path): directory to the shared model state dict. Defaults to "./synced_model".
+    """
     def __init__(
         self,
         input_dim: int,
@@ -19,7 +30,7 @@ class Optimizer(L.LightningWork):
         num_agents: int,
         model_cfg: omegaconf.DictConfig,
         optimizer_cfg: omegaconf.DictConfig,
-        agent_state_dir: str = "./synced_model",
+        save_dir: str = "./synced_model",
         **worker_kwargs
     ):
         super().__init__(**worker_kwargs)
@@ -35,9 +46,9 @@ class Optimizer(L.LightningWork):
         self._optimizer = hydra.utils.instantiate(self._optimizer_cfg, self._model.parameters())
 
         # Path to save the global model state
-        self.agent_state_dir = agent_state_dir
-        os.makedirs(agent_state_dir, exist_ok=True)
-        self.model_state_dict_path = Path(os.path.join(agent_state_dir, "model_state_dict.pt"))
+        self.save_dir = save_dir
+        os.makedirs(save_dir, exist_ok=True)
+        self.model_state_dict_path = Path(os.path.join(save_dir, "model_state_dict.pt"))
 
     def run(self, signal: int, agent_id: int, gradients: Optional[Payload] = None, *args, **kwargs):
         if gradients is not None:

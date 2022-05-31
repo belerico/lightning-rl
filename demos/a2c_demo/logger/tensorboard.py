@@ -7,6 +7,13 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 
 class TensorboardWork(L.LightningWork):
+    """Tensorboard logger as a LightningWork
+
+    Args:
+        log_dir (str): where to save logs.
+        num_agents (int): the number of agents.
+    """
+
     def __init__(self, log_dir: str, num_agents: int, **worker_kwargs):
         super().__init__(**worker_kwargs)
         self.log_dir = Path(log_dir)
@@ -18,7 +25,7 @@ class TensorboardWork(L.LightningWork):
         self._num_agents = num_agents
         self._metrics_received = 0
 
-    def run(self, signal: int, metrics: Dict[str, Any]):
+    def run(self, episode_counter: int, metrics: Dict[str, Any]):
         if metrics is not None:
             self._metrics_received += 1
             if self._metrics_received == 0:
@@ -26,6 +33,6 @@ class TensorboardWork(L.LightningWork):
             else:
                 self._metrics.update(metrics)
         if self._metrics_received == self._num_agents:
-            self._logger.log_metrics(self._metrics, signal)
+            self._logger.log_metrics(self._metrics, episode_counter)
             self._metrics = {}
             self._metrics_received = 0
