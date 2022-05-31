@@ -1,11 +1,14 @@
 import os
 from typing import List, Optional
+
 import hydra
 import lightning as L
-from lightning.storage.path import Path
-from lightning.storage.payload import Payload
 import omegaconf
 import torch
+from lightning.storage.path import Path
+from lightning.storage.payload import Payload
+
+from . import logger
 
 
 class Optimizer(L.LightningWork):
@@ -28,9 +31,7 @@ class Optimizer(L.LightningWork):
         self._synced_agents = 0
         self.done = False
 
-        self._model = hydra.utils.instantiate(
-            self._model_cfg, input_dim=self._input_dim, action_dim=self._action_dim
-        )
+        self._model = hydra.utils.instantiate(self._model_cfg, input_dim=self._input_dim, action_dim=self._action_dim)
         self._optimizer = hydra.utils.instantiate(self._optimizer_cfg, self._model.parameters())
 
         # Path to save the global model state
@@ -40,20 +41,18 @@ class Optimizer(L.LightningWork):
 
     def run(self, signal: int, agent_id: int, gradients: Optional[Payload] = None, *args, **kwargs):
         if gradients is not None:
-            print("Optimizer: received gradients from agent {}".format(agent_id))
+            logger.info("Optimizer: received gradients from agent {}".format(agent_id))
             self._synced_agents += 1
             gradients: List[torch.nn.Parameter] = gradients.value
             for param, grad in zip(self._model.parameters(), gradients):
                 if param.grad is None:
-                    param.grad = grad
+                    param.grad = grad / self.num_agents
                 else:
                     param.grad += grad / self.num_agents
         if self._synced_agents == self.num_agents:
-            print("Optimizer: synced all agents")
+            logger.info("Optimizer: synced all agents")
             self._optimizer.step()
             self._model.zero_grad()
             self._synced_agents = 0
             torch.save(self._model.state_dict(), self.model_state_dict_path)
             self.done = True
-
-

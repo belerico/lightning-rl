@@ -7,11 +7,13 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
+import torch.distributed as dist
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
-import torch.distributed as dist
 
 from demos.a2c_demo.buffer.rollout import RolloutBuffer
+
+from . import logger
 
 
 # Simple LightningWorker
@@ -106,14 +108,12 @@ class Player(L.LightningWork):
         return observation_size, action_dim
 
     def run(self, signal: int):
-        print("Player: playing episode {}".format(self.episode_counter))
+        logger.info("Player-{}: playing episode {}".format(self.agent_id, self.episode_counter))
         if self.model_state_dict_path.exists():
-            print("Player: loading model from {}".format(self.model_state_dict_path))
-            self.model_state_dict_path.get(overwrite=True)
             self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
 
         # Play the game
         replay_buffer = self.train_episode()
-        print("Player: episode length: {}".format(len(replay_buffer)))
+        logger.info("Player-{}: episode length: {}".format(self.agent_id, len(replay_buffer)))
         self.replay_buffer = Payload(replay_buffer)
         self.episode_counter += 1

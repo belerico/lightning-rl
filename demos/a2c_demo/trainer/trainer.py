@@ -2,10 +2,14 @@ import os
 
 import hydra
 import lightning as L
+import numpy as np
 import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
+from pytorch_lightning.loggers import TensorBoardLogger
+
+from . import logger
 
 
 # Simple LightningWorker
@@ -30,41 +34,43 @@ class Trainer(L.LightningWork):
         action_dim: int,
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
-        optimizer_cfg: omegaconf.DictConfig,
         model_state_dict_path: Path,
         agent_id: int = 0,
         **worker_kwargs
-    ) -> None: 
+    ) -> None:
         super(Trainer, self).__init__(worker_kwargs)
         self._input_dim = input_dim
         self._action_dim = action_dim
-        self._agent = None
-        self._agent_cfg = agent_cfg
         self.agent_id = agent_id
-        self._model_cfg = model_cfg
-        self._optimizer_cfg = optimizer_cfg
+        model = hydra.utils.instantiate(model_cfg, input_dim=self._input_dim, action_dim=self._action_dim)
+        self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=None)
         self.gradients = None  # Payload to be shared
         self.episode_counter = 0
         self.model_state_dict_path = model_state_dict_path
+        self.metrics = None
 
     def run(self, signal: int, buffer: Payload):
         if signal > 0:
-            print("Trainer: training episode {}".format(self.episode_counter))
-            buffer.get()
+            logger.info("Trainer-{}: training episode {}".format(self.agent_id, self.episode_counter))
             buffer = buffer.value
-
-            if self._agent is None:
-                model = hydra.utils.instantiate(self._model_cfg, input_dim=self._input_dim, action_dim=self._action_dim)
-                optimizer = hydra.utils.instantiate(self._optimizer_cfg, model.parameters())
-                self._agent = hydra.utils.instantiate(self._agent_cfg, model=model, optimizer=optimizer)
+            sum_rewards = np.sum(buffer.rewards).item()
 
             if self.model_state_dict_path.exists():
-                print("Trainer: loading synced gradients")
                 self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
 
             self._agent.replay_buffer = buffer
-            print("Trainer: training agent")
-            agent_loss, sum_rewards, gradients = self._agent.train_step()
-            print("Trainer: Loss: {:.4f}, Sum of rewards: {:.4f}".format(agent_loss, sum_rewards))
+            gradients, metrics = self._agent.train_step()
+            metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = len(buffer)
+            metrics["Rewards/Agent-{}/sum_rew".format(self.agent_id)] = sum_rewards
+            logger.info(
+                "Trainer-{}: Loss: {:.4f}, Policy Loss: {:.4f}, Value Loss: {:.4f}, Sum of rewards: {:.4f}".format(
+                    self.agent_id,
+                    metrics["Loss/Agent-{}/loss".format(self.agent_id)],
+                    metrics["Loss/Agent-{}/policy_loss".format(self.agent_id)],
+                    metrics["Loss/Agent-{}/value_loss".format(self.agent_id)],
+                    sum_rewards,
+                )
+            )
+            self.metrics = metrics
             self.gradients = Payload(gradients)
             self.episode_counter += 1

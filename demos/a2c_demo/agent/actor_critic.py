@@ -1,8 +1,9 @@
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from wandb import agent
 
 from demos.a2c_demo.buffer.rollout import RolloutBuffer
 
@@ -13,7 +14,7 @@ class A2CAgent:
 
     Args:
         model (torch.nn.Module): model of the Neural Net for the Actor and the Critic.
-        optimizer (torch.optim.Optimizer): optimizer for performing the parameters update step after the backward.
+        optimizer (torch.optim.Optimizer, optional): optimizer for performing the parameters update step after the backward.
         scheduler (torch.optim.lr_scheduler._LRScheduler, optional): scheduler for the learning rate decay.
             Default is None.
         batch_size (int, optional): size for the minibatch. Default is 32.
@@ -21,43 +22,37 @@ class A2CAgent:
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
         rewards_gamma (np.ndarray, optional): discount factor parameter. Default is np.array([0.99]).
-        normalize_returns (bool): whether to normalize the returns.
-        normalize_advantages (bool): whether to normalize the advantages.
+        normalize_returns (bool, optional): whether to normalize the returns.
+        agent_id (int, optional): The agent id.
     """
 
     def __init__(
         self,
         model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
+        optimizer: Optional[torch.optim.Optimizer] = None,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         batch_size: int = 32,
         shuffle: bool = False,
         clip_gradients: Optional[float] = 0.0,
         rewards_gamma: np.ndarray = np.array([0.99]),
         normalize_returns: bool = True,
+        agent_id: Optional[int] = None,
     ):
         super(A2CAgent, self).__init__()
-
-        # Model
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.distribution = torch.distributions.Categorical
-
-        # Training
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.clip_gradients = clip_gradients
         self.episode_counter = 0
         self.returns: Optional[torch.Tensor] = None
         self._replay_buffer = None
-
-        # Rewards
+        self.agent_id = agent_id
+        self.metrics = {}
         self.rewards_gamma = rewards_gamma
         self.normalize_returns = normalize_returns
-
-        # Checkpointing
-        # TODO: add checkpointing for the model
 
     @property
     def replay_buffer(self):
@@ -163,17 +158,18 @@ class A2CAgent:
         Returns:
             Optional[torch.Tensor]: the norm of the gradients before clipping it.
         """
-        # Clip gradients
         grad_norm = None
         if self.clip_gradients is not None and self.clip_gradients > 0:
             grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_gradients)
-        # self.optimizer.step()
-        # if self.scheduler is not None:
-        #     self.scheduler.step()
+        if self.optimizer is not None:
+            self.optimizer.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
         return grad_norm
 
     def before_backward(self):
-        self.optimizer.zero_grad(set_to_none=True)
+        if self.optimizer is not None:
+            self.optimizer.zero_grad(set_to_none=True)
 
     def after_backward(self):
         pass
@@ -199,10 +195,8 @@ class A2CAgent:
         idxes = list(range(num_samples))
         return slices, idxes
 
-    def compute_loss(self) -> Optional[torch.Tensor]:
+    def compute_loss(self) -> List[torch.nn.Parameter]:
         """Compute the loss."""
-
-        # Get returns
         returns, advantages = self.get_returns_and_advantages()
 
         # Get slices and indexes for batching
@@ -218,31 +212,24 @@ class A2CAgent:
             game_actions = buffer_data["actions"]
 
             log_probs, values = self.evaluate_action(observation, game_actions)
-            total_policy_loss -= (log_probs.unsqueeze(1) * advantages[batch_idxes]).sum()
-            total_value_loss += F.smooth_l1_loss(values, returns[batch_idxes], reduction="sum")
+            total_policy_loss -= (log_probs.unsqueeze(1) * advantages[batch_idxes]).sum() / num_samples
+            total_value_loss += F.smooth_l1_loss(values, returns[batch_idxes], reduction="sum") / num_samples
 
         loss = total_policy_loss + total_value_loss
 
-        # Backward pass
+        self.metrics["Loss/Agent-{}/loss".format(self.agent_id)] = loss.item()
+        self.metrics["Loss/Agent-{}/value_loss".format(self.agent_id)] = total_value_loss.item()
+        self.metrics["Loss/Agent-{}/policy_loss".format(self.agent_id)] = total_policy_loss.item()
+
         self.backward(loss)
-
-        # Clip gradients + optimizer step
-        self.optimize_step()
-
+        grad_norm = self.optimize_step()
+        self.metrics["Gradients/Agent-{}/grad_norm".format(self.agent_id)] = grad_norm.item()
         gradients = [p.grad for p in self.model.parameters()]
-        
-        return loss, gradients
 
-    def train_step(self) -> Tuple[torch.Tensor, np.ndarray]:
+        return gradients
+
+    def train_step(self) -> Tuple[List[torch.nn.Parameter], Dict[str, Any]]:
         """Run the forward and backward passes."""
-
-        # Compute loss
-        agent_loss, gradients = self.compute_loss()
-        self.episode_counter += 1
-
-        # TODO: Log everything
-        # self.log(agent_loss)
-        # self.log(grad_norm)
-
-        return agent_loss.item(), np.sum(self.replay_buffer.rewards), gradients
-
+        self.metrics = {}
+        gradients = self.compute_loss()
+        return gradients, self.metrics
