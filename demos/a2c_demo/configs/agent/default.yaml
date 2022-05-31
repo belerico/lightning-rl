@@ -1,4 +1,3 @@
 _target_: demos.a2c_demo.agent.actor_critic.A2CAgent
 batch_size: 256
-shuffle: False
-clip_gradients: 200
+clip_gradients: 0.5
