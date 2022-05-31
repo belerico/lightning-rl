@@ -14,11 +14,11 @@ class TensorboardWork(L.LightningWork):
         num_agents (int): the number of agents.
     """
 
-    def __init__(self, log_dir: str, num_agents: int, **worker_kwargs):
+    def __init__(self, log_dir: str, num_agents: int, host: str = "localhost", port: str = "6006", **worker_kwargs):
         super().__init__(**worker_kwargs)
         self.log_dir = Path(log_dir)
         self._tb = tensorboard.program.TensorBoard()
-        self._tb.configure(argv=[None, "--logdir", self.log_dir.name])
+        self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", host, "--port", port])
         self._tb.launch()
         self._logger = TensorBoardLogger(save_dir=self.log_dir.name, name="a2c_demo")
         self._metrics = {}
