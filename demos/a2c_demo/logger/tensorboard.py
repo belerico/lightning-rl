@@ -19,7 +19,7 @@ class TensorboardWork(L.LightningWork):
         self.log_dir = Path(log_dir)
         self._tb = tensorboard.program.TensorBoard()
         self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", host, "--port", port])
-        self._tb.launch()
+        self.url = self._tb.launch()
         self._logger = TensorBoardLogger(save_dir=self.log_dir.name, name="a2c_demo")
         self._metrics = {}
         self._num_agents = num_agents

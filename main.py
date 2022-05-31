@@ -98,7 +98,7 @@ class A2CDemoFlow(L.LightningFlow):
                 self._players[i].stop()
 
     def configure_layout(self):
-        tab_1 = {"name": "TB logs", "content": "http://localhost:6006/"}
+        tab_1 = {"name": "TB logs", "content": self.logger.url}
         return tab_1
 
 
