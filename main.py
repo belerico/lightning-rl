@@ -84,11 +84,9 @@ class A2CDemoFlow(L.LightningFlow):
                 self._players[i].run(self._trainers[i].episode_counter)
         for i in range(self.num_agents):
             self._trainers[i].run(self._players[i].episode_counter, self._players[i].replay_buffer)
-        for i in range(self.num_agents):
             self.optimizer.run(
                 self._trainers[i].episode_counter, self._trainers[i].agent_id, self._trainers[i].gradients
             )
-        for i in range(self.num_agents):
             self.logger.run(self._trainers[i].episode_counter, self._trainers[i].metrics)
         if self._trainers[0].episode_counter >= self.max_episodes:
             self.logger.stop()
