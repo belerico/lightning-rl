@@ -51,11 +51,12 @@ class Trainer(L.LightningWork):
         if signal > 0 and buffer is not None:
             logger.info("Trainer-{}: training episode {}".format(self.agent_id, self.episode_counter))
             buffer = buffer.value
-            sum_rewards = np.sum(buffer.rewards).item()
+            n_players = np.sum(buffer.dones).item()
+            sum_rewards = np.sum(buffer.rewards).item() / n_players
             self._agent.buffer = buffer
             metrics = self._agent.train_step()
             torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
-            metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = len(buffer)
+            metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = len(buffer) / n_players
             metrics["Rewards/Agent-{}/sum_rew".format(self.agent_id)] = sum_rewards
             logger.info(
                 "Trainer-{}: Loss: {:.4f}, Policy Loss: {:.4f}, Value Loss: {:.4f}, Sum of rewards: {:.4f}".format(
