@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import lightning as L
 import tensorboard
@@ -25,7 +25,7 @@ class TensorboardWork(L.LightningWork):
         self._num_agents = num_agents
         self._metrics_received = 0
 
-    def run(self, episode_counter: int, metrics: Dict[str, Any]):
+    def run(self, episode_counter: int, metrics: Optional[Dict[str, Any]] = None):
         if metrics is not None:
             self._metrics_received += 1
             if self._metrics_received == 0:
