@@ -1,55 +1,41 @@
+from asyncio.log import logger
 import dataclasses
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+import lightning as L
 import numpy as np
 import torch
+from lightning.storage.payload import Payload
+
+
+class BufferWork(L.LightningWork):
+    def __init__(self, buffers_to_receive: int, **worker_kwargs):
+        super().__init__(**worker_kwargs)
+        self.buffer = None
+        self._buffer: RolloutBuffer = None
+        self.buffers_to_receive = buffers_to_receive
+        self._received_buffers = []
+        self.episode_counter = 0
+
+    def run(self, signal: int, agent_id: int, agent_buffer: Optional[Payload] = None):
+        if agent_buffer is not None and agent_id not in self._received_buffers:
+            self._received_buffers.append(agent_id)
+            agent_buffer = agent_buffer.value
+            if self._buffer is None:
+                self._buffer = agent_buffer
+            else:
+                self._buffer.append(agent_buffer)
+        if len(self._received_buffers) == self.buffers_to_receive:
+            self.buffer = Payload(self._buffer)
+            self._buffer = None
+            self._received_buffers = []
+            self.episode_counter += 1
 
 
 @dataclass
-class BaseBuffer(ABC):
-    @classmethod
-    def field_names(cls) -> List[str]:
-        return [f.name for f in dataclasses.fields(cls) if f.type == np.ndarray]
-
-    def get_field(self, field_name: str) -> Any:
-        return getattr(self, field_name)
-
-    def __len__(self) -> int:
-        """Get the length of the buffer"""
-        raise NotImplementedError
-
-    def __getitem__(self, *args, **kwargs) -> Any:
-        """Get the item at the index"""
-        raise NotImplementedError
-
-    def to_array(self, *args, **kwargs) -> Any:
-        raise NotImplementedError
-
-    @staticmethod
-    def from_array(*args, **kwargs) -> "BaseBuffer":
-        raise NotImplementedError
-
-    @staticmethod
-    def from_dict(*args, **kwargs) -> "BaseBuffer":
-        raise NotImplementedError
-
-    def add(self, data: Dict[str, np.ndarray]) -> None:
-        """Add a new item to the buffer"""
-        raise NotImplementedError
-
-    def append(self, another_buffer: "BaseBuffer") -> None:
-        """Appends another Buffer to this one"""
-        raise NotImplementedError
-
-    def shrink(self, total_size: int) -> None:
-        """Shrinks the Buffer to the given size"""
-        raise NotImplementedError
-
-
-@dataclass
-class RolloutBuffer(BaseBuffer):
+class RolloutBuffer:
     # PPO and A2C like algorithms
     # the data order follows the same order below
     observations: np.ndarray
@@ -58,16 +44,25 @@ class RolloutBuffer(BaseBuffer):
     actions: np.ndarray
     log_probs: np.ndarray
     values: np.ndarray
+    returns: Optional[np.ndarray] = None
+    advantages: Optional[np.ndarray] = None
 
     def __post_init__(self):
         self.total_inputs_num = self.observations.shape[1]
         for field_name in RolloutBuffer.field_names():
             values = getattr(self, field_name)
-            if len(values.shape) == 1:
+            if values is not None and len(values.shape) == 1:
                 if field_name in ["rewards", "actions", "log_probs"]:
                     setattr(self, field_name, values.reshape(-1, self.__len__()).T)
                 else:
                     setattr(self, field_name, values.reshape(self.__len__(), -1))
+
+    @classmethod
+    def field_names(cls) -> List[str]:
+        return [f.name for f in dataclasses.fields(cls) if f.type == np.ndarray or f.type == Optional[np.ndarray]]
+
+    def get_field(self, field_name: str) -> Any:
+        return getattr(self, field_name)
 
     def __len__(self) -> int:
         """Returns the number of steeps in the Buffer"""
@@ -79,7 +74,6 @@ class RolloutBuffer(BaseBuffer):
         for field_name in RolloutBuffer.field_names():
             field = self.get_field(field_name)
             representation.append(f"\t{field_name}: {field.shape}\n")
-            print(f"{field_name}: {field.shape}")
         return "".join(representation)
 
     def __getitem__(self, item: Union[int, List[int]]) -> Dict[str, Optional[torch.Tensor]]:
@@ -122,6 +116,39 @@ class RolloutBuffer(BaseBuffer):
         """Creates a Buffer from a dictionary"""
         return RolloutBuffer(**data)
 
+    def compute_returns_and_advatages(
+        self,
+        gamma: np.ndarray = np.array([0.99]),
+        normalize_returns: bool = True,
+    ):
+        """Compute discounted returns
+
+        Args:
+            rewards (np.ndarray): array of rewards of every time step. It has a shape of
+                TxNr, where `T` is the number of time steps, while `Nr` is the number of
+                rewards.
+
+        Returns:
+        np.ndarray: the array of discounted rewards of shape Tx1 if `reduction` is "sum" or "mean",
+        of shape TxNr otherwise.
+        """
+        n_steps = self.rewards.shape[0]
+        returns = np.zeros(self.rewards.shape)
+        R = np.zeros(gamma.shape)
+
+        for step in reversed(range(n_steps)):
+            r = self.rewards[step, :]
+            R = r + gamma * R * (1 - self.dones[step, :])
+            returns[step, :] = R
+        returns = np.sum(returns, axis=1, keepdims=True)
+        if normalize_returns:
+            returns = (returns - np.mean(returns, axis=0, keepdims=True)) / (
+                np.std(returns, ddof=1, axis=0, keepdims=True) + 1e-8
+            )
+
+        self.returns = returns
+        self.advantages = returns - self.values
+
     def add(self, data: Dict[str, np.ndarray]) -> None:
         """Adds data to the Buffer"""
         for field_name in RolloutBuffer.field_names():
@@ -130,5 +157,4 @@ class RolloutBuffer(BaseBuffer):
                 data[field_name] = data[field_name].numpy()
             else:
                 raise ValueError(f"{field_name} is neither a numpy array nor a torch tensor")
-
             setattr(self, field_name, np.concatenate((field, data[field_name])))

@@ -1,3 +1,5 @@
+import os
+from typing import Optional
 
 import hydra
 import lightning as L
@@ -31,30 +33,28 @@ class Trainer(L.LightningWork):
         action_dim: int,
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
-        model_state_dict_path: Path,
+        optimizer_cfg: omegaconf.DictConfig,
         agent_id: int = 0,
         **worker_kwargs
     ) -> None:
         super(Trainer, self).__init__(worker_kwargs)
         self.agent_id = agent_id
         model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
-        self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=None)
-        self.gradients = None  # Payload to be shared
+        optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
+        self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
         self.episode_counter = 0
-        self.model_state_dict_path = model_state_dict_path
+        os.makedirs("./synced_model/", exist_ok=True)
+        self.model_state_dict_path = Path("./synced_model/model_state_dict.pth")
         self.metrics = None
 
     def run(self, signal: int, buffer: Payload):
-        if signal > 0:
+        if signal > 0 and buffer is not None:
             logger.info("Trainer-{}: training episode {}".format(self.agent_id, self.episode_counter))
             buffer = buffer.value
             sum_rewards = np.sum(buffer.rewards).item()
-
-            if self.model_state_dict_path.exists():
-                self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
-
-            self._agent.replay_buffer = buffer
-            gradients, metrics = self._agent.train_step()
+            self._agent.buffer = buffer
+            metrics = self._agent.train_step()
+            torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
             metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = len(buffer)
             metrics["Rewards/Agent-{}/sum_rew".format(self.agent_id)] = sum_rewards
             logger.info(
@@ -67,5 +67,4 @@ class Trainer(L.LightningWork):
                 )
             )
             self.metrics = metrics
-            self.gradients = Payload(gradients)
             self.episode_counter += 1

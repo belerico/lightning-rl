@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import gym
 import hydra
@@ -9,7 +9,7 @@ import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
-from demos.a2c_demo.buffer.rollout import RolloutBuffer
+from demos.a2c_demo.buffer.rollout import BufferWork, RolloutBuffer
 
 from . import logger
 
@@ -39,7 +39,7 @@ class Player(L.LightningWork):
     ) -> None:
         super(Player, self).__init__(worker_kwargs)
         # Game
-        self.replay_buffer = None  # Payload
+        self.buffer = None  # Payload
         self.environment_id = environment_id
         self.input_dim, self.action_dim = Player.get_env_info(environment_id)
 
@@ -90,6 +90,7 @@ class Player(L.LightningWork):
             buffer_data[k] = np.array(v)
 
         buffer = RolloutBuffer.from_dict(buffer_data)
+        buffer.compute_returns_and_advatages()
         return buffer
 
     @staticmethod
@@ -110,7 +111,39 @@ class Player(L.LightningWork):
             self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
 
         # Play the game
-        replay_buffer = self.train_episode()
-        logger.info("Player-{}: episode length: {}".format(self.agent_id, len(replay_buffer)))
-        self.replay_buffer = Payload(replay_buffer)
+        buffer = self.train_episode()
+        logger.info("Player-{}: episode length: {}".format(self.agent_id, len(buffer)))
+        self.buffer = Payload(buffer)
         self.episode_counter += 1
+
+
+class PlayersFlow(L.LightningFlow):
+    def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig, model_state_dict_path: Path):
+        super().__init__()
+        self.n_players = n_players
+        self._players: List[Player] = []
+        self.buffer_work = BufferWork(n_players)
+        for i in range(self.n_players):
+            setattr(
+                self,
+                "player_{}".format(i),
+                hydra.utils.instantiate(
+                    player_cfg,
+                    agent_id=i,
+                    model_state_dict_path=model_state_dict_path,
+                    run_once=True,
+                    parallel=True,
+                ),
+            )
+            self._players.append(getattr(self, "player_{}".format(i)))
+
+    def run(self, signal: int) -> None:
+        for i in range(self.n_players):
+            self._players[i].run(signal)
+        for i in range(self.n_players):
+            self.buffer_work.run(signal, self._players[i].agent_id, self._players[i].buffer)
+
+    def stop(self):
+        self.buffer_work.stop()
+        for i in range(self.n_players):
+            getattr(self, "player_{}".format(i)).stop()
