@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 import hydra
 import lightning as L

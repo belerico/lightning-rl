@@ -1,4 +1,3 @@
-from typing import List
 
 import hydra
 import lightning as L
@@ -15,7 +14,7 @@ class A2CDemoFlow(L.LightningFlow):
         self,
         player_cfg: omegaconf.DictConfig,
         trainer_cfg: omegaconf.DictConfig,
-        num_agents: int = 1,
+        num_agents: int = 2,
         max_episodes: int = 1000,
     ):
         super().__init__()
