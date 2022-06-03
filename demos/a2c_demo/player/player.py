@@ -1,4 +1,5 @@
-from typing import List, Tuple
+import os
+from typing import List, Optional, Tuple
 
 import gym
 import hydra
@@ -10,6 +11,7 @@ from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
 from demos.a2c_demo.buffer.rollout import BufferWork, RolloutBuffer
+from demos.a2c_demo.utils.viz import save_episode_as_gif
 
 from . import logger
 
@@ -35,6 +37,7 @@ class Player(L.LightningWork):
         model_cfg: omegaconf.DictConfig,
         model_state_dict_path: Path,
         agent_id: int = 0,
+        rendering_path: Optional[Path] = None,
         **worker_kwargs
     ) -> None:
         super(Player, self).__init__(worker_kwargs)
@@ -53,6 +56,9 @@ class Player(L.LightningWork):
 
         # Misc
         self.episode_counter = 0
+        if rendering_path is not None:
+            os.makedirs(rendering_path, exist_ok=True)
+        self.rendering_path = rendering_path
 
     @torch.no_grad()
     def train_episode(self) -> RolloutBuffer:
@@ -93,6 +99,32 @@ class Player(L.LightningWork):
         buffer.compute_returns_and_advatages()
         return buffer
 
+    @torch.no_grad()
+    def test_episode(self, episode_counter) -> None:
+        """Samples an episode for a single agent in training mode
+        Returns:
+            RolloutBuffer: Episode data in a RolloutBuffer
+
+        """
+        environment = gym.make(self.environment_id)
+        environment.metadata["render_modes"] = ["rgb_array"]
+        observation = environment.reset()
+        game_done = False
+        step_counter = 0
+        frames = []
+        while not game_done:
+            observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
+            env_actions = self._agent.select_greedy_action(observation_tensor)
+            env_actions = env_actions.numpy().flatten().tolist()
+            env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
+            next_observation, reward, game_done, info = environment.step(env_actions)
+            observation = next_observation
+            frame = environment.render(mode="rgb_array")
+            frames.append(frame)
+            step_counter += 1
+        environment.close()
+        save_episode_as_gif(frames, path=self.rendering_path, episode_counter=episode_counter)
+
     @staticmethod
     def get_env_info(environment_id: str) -> Tuple[int, int]:
         environment = gym.make(environment_id)
@@ -105,16 +137,22 @@ class Player(L.LightningWork):
             action_dim = environment.action_space.shape[0]
         return observation_size, action_dim
 
-    def run(self, signal: int):
-        logger.info("Player-{}: playing episode {}".format(self.agent_id, self.episode_counter))
+    def run(self, signal: int, test: Optional[bool] = False):
         if self.model_state_dict_path.exists():
+            self.model_state_dict_path.get(overwrite=True)
             self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
+        else:
+            self.model_state_dict_path.get() 
 
-        # Play the game
-        buffer = self.train_episode()
-        logger.info("Player-{}: episode length: {}".format(self.agent_id, len(buffer)))
-        setattr(self, "buffer_{}".format(self.agent_id), Payload(buffer))
-        self.episode_counter += 1
+        if test:
+            logger.info("Tester-{}: testing episode".format(self.agent_id))
+            self.test_episode(signal)
+        else:
+            logger.info("Player-{}: playing episode {}".format(self.agent_id, self.episode_counter))
+            buffer = self.train_episode()
+            logger.info("Player-{}: episode length: {}".format(self.agent_id, len(buffer)))
+            setattr(self, "buffer_{}".format(self.agent_id), Payload(buffer))
+            self.episode_counter += 1
 
 
 class PlayersFlow(L.LightningFlow):

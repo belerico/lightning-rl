@@ -9,6 +9,7 @@ defaults:
   - hydra: default.yaml
   - environment: default.yaml
   - player: default.yaml
+  - tester: default.yaml
   - trainer: default.yaml
 
 work_dir: ${hydra:runtime.cwd}

@@ -134,3 +134,4 @@ demos/mnist
 logs/
 synced_model/
 buffer*
+rendering/
