@@ -1,16 +1,44 @@
+import base64
 import os
 
 os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 import hydra
+
+# app.py
 import lightning as L
 import omegaconf
+import streamlit as st
 from hydra.experimental import compose, initialize
+from lightning.frontend.stream_lit import StreamlitFrontend
 from lightning.storage.path import Path
 
 from demos.a2c_demo.logger.tensorboard import TensorboardWork
 from demos.a2c_demo.player.player import Player, PlayersFlow
 from demos.a2c_demo.trainer.trainer import Trainer
+
+
+def render_gif(state):
+    if state.rendering_path.exists() and os.listdir(state.rendering_path):
+        state.rendering_path.get(overwrite=True)
+        gif = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)[0]
+        file_ = open(os.path.join(state.rendering_path, gif), "rb")
+        contents = file_.read()
+        data_url = base64.b64encode(contents).decode("utf-8")
+        file_.close()
+        st.markdown(
+            f'<img src="data:image/gif;base64,{data_url}" >',
+            unsafe_allow_html=True,
+        )
+
+
+class LitStreamlit(L.LightningFlow):
+    def __init__(self, rendering_path: Path):
+        super().__init__()
+        self.rendering_path = rendering_path
+
+    def configure_layout(self):
+        return StreamlitFrontend(render_fn=render_gif)
 
 
 class A2CDemoFlow(L.LightningFlow):
@@ -21,7 +49,7 @@ class A2CDemoFlow(L.LightningFlow):
         trainer_cfg: omegaconf.DictConfig,
         num_agents: int = 2,
         max_episodes: int = 1000,
-        rendering_frequency: int = 10
+        rendering_frequency: int = 10,
     ):
         super().__init__()
         self.num_agents = num_agents
@@ -47,6 +75,7 @@ class A2CDemoFlow(L.LightningFlow):
             self.num_agents, player_cfg, model_state_dict_path=self.trainer.model_state_dict_path
         )
         self.logger = TensorboardWork("./logs", num_agents=1, parallel=True)
+        self.hello_component = LitStreamlit(rendering_path=self.tester.rendering_path)
 
     def run(self):
         self.players.run(self.trainer.episode_counter)
@@ -61,7 +90,8 @@ class A2CDemoFlow(L.LightningFlow):
 
     def configure_layout(self):
         tab_1 = {"name": "TB logs", "content": self.logger.url}
-        return tab_1
+        tab_2 = {"name": "GIF", "content": self.hello_component}
+        return [tab_1, tab_2]
 
 
 if __name__ == "__main__":

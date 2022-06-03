@@ -142,8 +142,6 @@ class Player(L.LightningWork):
         if self.model_state_dict_path.exists():
             self.model_state_dict_path.get(overwrite=True)
             self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
-        else:
-            self.model_state_dict_path.get() 
 
         if test:
             logger.info("Tester-{}: testing episode".format(self.agent_id))
