@@ -39,7 +39,7 @@ class Player(L.LightningWork):
     ) -> None:
         super(Player, self).__init__(worker_kwargs)
         # Game
-        self.buffer = None  # Payload
+        setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
         self.input_dim, self.action_dim = Player.get_env_info(environment_id)
 
@@ -113,7 +113,7 @@ class Player(L.LightningWork):
         # Play the game
         buffer = self.train_episode()
         logger.info("Player-{}: episode length: {}".format(self.agent_id, len(buffer)))
-        self.buffer = Payload(buffer)
+        setattr(self, "buffer_{}".format(self.agent_id), Payload(buffer))
         self.episode_counter += 1
 
 
@@ -141,7 +141,11 @@ class PlayersFlow(L.LightningFlow):
         for i in range(self.n_players):
             self._players[i].run(signal)
         for i in range(self.n_players):
-            self.buffer_work.run(signal, self._players[i].agent_id, self._players[i].buffer)
+            self.buffer_work.run(
+                signal,
+                self._players[i].agent_id,
+                getattr(self._players[i], "buffer_{}".format(i)),
+            )
 
     def stop(self):
         self.buffer_work.stop()

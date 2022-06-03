@@ -48,7 +48,11 @@ class Trainer(L.LightningWork):
 
     def run(self, signal: int, buffer: Payload):
         if signal > 0 and buffer is not None:
-            logger.info("Trainer-{}: training episode {}".format(self.agent_id, self.episode_counter))
+            logger.info(
+                "Trainer-{}: training episode {}, buffer length: {}".format(
+                    self.agent_id, self.episode_counter, len(buffer.value)
+                )
+            )
             buffer = buffer.value
             n_players = np.sum(buffer.dones).item()
             sum_rewards = np.sum(buffer.rewards).item() / n_players

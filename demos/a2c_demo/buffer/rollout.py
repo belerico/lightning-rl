@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from lightning.storage.payload import Payload
 
+from . import logger
+
 
 class BufferWork(L.LightningWork):
     def __init__(self, buffers_to_receive: int, **worker_kwargs):
@@ -19,6 +21,7 @@ class BufferWork(L.LightningWork):
 
     def run(self, signal: int, agent_id: int, agent_buffer: Optional[Payload] = None):
         if agent_buffer is not None and agent_id not in self._received_buffers:
+            logger.info("Received buffer from agent {}, length: {}".format(agent_id, len(agent_buffer.value)))
             self._received_buffers.append(agent_id)
             agent_buffer = agent_buffer.value
             if self._buffer is None:
@@ -26,6 +29,7 @@ class BufferWork(L.LightningWork):
             else:
                 self._buffer.append(agent_buffer)
         if len(self._received_buffers) == self.buffers_to_receive:
+            logger.info("Received all buffers. Total buffer length: {}".format(len(self._buffer)))
             self.buffer = Payload(self._buffer)
             self._buffer = None
             self._received_buffers = []

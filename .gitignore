@@ -133,4 +133,4 @@ dmypy.json
 demos/mnist
 logs/
 synced_model/
-buffer
+buffer*
