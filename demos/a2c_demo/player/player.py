@@ -108,6 +108,7 @@ class Player(L.LightningWork):
         """
         environment = gym.make(self.environment_id)
         environment.metadata["render_modes"] = ["rgb_array"]
+        environment.metadata["render_fps"] = 80
         observation = environment.reset()
         game_done = False
         step_counter = 0
