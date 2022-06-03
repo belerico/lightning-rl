@@ -122,7 +122,7 @@ class PlayersFlow(L.LightningFlow):
         super().__init__()
         self.n_players = n_players
         self._players: List[Player] = []
-        self.buffer_work = BufferWork(n_players)
+        self.buffer_work = BufferWork(n_players, run_once=True, parallel=True)
         for i in range(self.n_players):
             setattr(
                 self,

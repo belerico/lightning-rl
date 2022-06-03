@@ -1,4 +1,3 @@
-
 import hydra
 import lightning as L
 import omegaconf
@@ -32,7 +31,7 @@ class A2CDemoFlow(L.LightningFlow):
         self.players = PlayersFlow(
             self.num_agents, player_cfg, model_state_dict_path=self.trainer.model_state_dict_path
         )
-        self.logger = TensorboardWork("./logs", num_agents=self.num_agents, parallel=True)
+        self.logger = TensorboardWork("./logs", num_agents=1, parallel=True)
 
     def run(self):
         self.players.run(self.trainer.episode_counter)
