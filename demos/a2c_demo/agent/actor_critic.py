@@ -169,8 +169,8 @@ class A2CAgent:
             returns = buffer_data["returns"]
 
             log_probs, values = self.evaluate_action(observation, game_actions)
-            total_policy_loss -= (log_probs.unsqueeze(1) * advantages[batch_idxes]).sum()
-            total_value_loss += F.smooth_l1_loss(values, returns[batch_idxes], reduction="sum")
+            total_policy_loss -= (log_probs.unsqueeze(1) * advantages).sum()
+            total_value_loss += F.smooth_l1_loss(values, returns, reduction="sum")
 
         loss = (total_policy_loss + total_value_loss) / num_samples
 
