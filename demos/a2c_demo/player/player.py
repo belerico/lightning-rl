@@ -44,6 +44,9 @@ class Player(L.LightningWork):
         # Game
         setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
+        self._environment = gym.make(self.environment_id)
+        self._environment.metadata["render_modes"] = ["rgb_array"]
+        self._environment.metadata["render_fps"] = 80
         self.input_dim, self.action_dim = Player.get_env_info(environment_id)
 
         model_cfg = model_cfg
@@ -67,8 +70,7 @@ class Player(L.LightningWork):
             RolloutBuffer: Episode data in a RolloutBuffer
 
         """
-        environment = gym.make(self.environment_id)
-        observation = environment.reset()
+        observation = self._environment.reset()
         game_done = False
         step_counter = 0
         buffer_data = {key: [] for key in RolloutBuffer.field_names()}
@@ -80,7 +82,7 @@ class Player(L.LightningWork):
             actions = actions.numpy()
             env_actions = actions.flatten().tolist()
             env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
-            next_observation, reward, game_done, info = environment.step(env_actions)
+            next_observation, reward, game_done, info = self._environment.step(env_actions)
 
             buffer_data["observations"].append(observation)
             buffer_data["values"].append(values)
@@ -106,10 +108,7 @@ class Player(L.LightningWork):
             RolloutBuffer: Episode data in a RolloutBuffer
 
         """
-        environment = gym.make(self.environment_id)
-        environment.metadata["render_modes"] = ["rgb_array"]
-        environment.metadata["render_fps"] = 80
-        observation = environment.reset()
+        observation = self._environment.reset()
         game_done = False
         step_counter = 0
         frames = []
@@ -118,12 +117,12 @@ class Player(L.LightningWork):
             env_actions = self._agent.select_greedy_action(observation_tensor)
             env_actions = env_actions.numpy().flatten().tolist()
             env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
-            next_observation, reward, game_done, info = environment.step(env_actions)
+            next_observation, reward, game_done, info = self._environment.step(env_actions)
             observation = next_observation
-            frame = environment.render(mode="rgb_array")
+            frame = self._environment.render(mode="rgb_array")
             frames.append(frame)
             step_counter += 1
-        environment.close()
+        self._environment.close()
         save_episode_as_gif(frames, path=self.rendering_path, episode_counter=episode_counter)
 
     @staticmethod
@@ -172,14 +171,17 @@ class PlayersFlow(L.LightningFlow):
                     parallel=True,
                 ),
             )
-            self._players.append(getattr(self, "player_{}".format(i)))
+            self._players.append(self.get_player(i))
+    
+    def get_player(self, i) -> Player:
+        return getattr(self, "player_{}".format(i))
 
     def run(self, signal: int) -> None:
         for i in range(self.n_players):
             self._players[i].run(signal)
         for i in range(self.n_players):
             self.buffer_work.run(
-                signal,
+                self._players[i].episode_counter,
                 self._players[i].agent_id,
                 getattr(self._players[i], "buffer_{}".format(i)),
             )
@@ -187,4 +189,4 @@ class PlayersFlow(L.LightningFlow):
     def stop(self):
         self.buffer_work.stop()
         for i in range(self.n_players):
-            getattr(self, "player_{}".format(i)).stop()
+            self._players[i].stop()
