@@ -11,7 +11,7 @@ numpy = ">=1.21"
 pytorch-lightning = ">=1.5.10"
 matplotlib = "3.5.1"
 Box2D = "2.3.10"
-gym = "^0.21.0"
+gym = {version = "^0.21.0", extras = ["box2d"]}
 hydra-core = "1.1.1"
 tensorboard = "^2.8.0"
 streamlit = "^1.9.2"

@@ -13,7 +13,7 @@ defaults:
   - trainer: default.yaml
 
 work_dir: ${hydra:runtime.cwd}
-debug: False
-print_config: True
-ignore_warnings: True
-num_threads: 1
+num_players: 2
+max_episodes: 500
+rendering_frequency: 10
+save_rendering: True

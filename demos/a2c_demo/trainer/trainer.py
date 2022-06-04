@@ -18,11 +18,12 @@ class Trainer(L.LightningWork):
     Args:
         input_dim (int): input dimension of the model (the size of the observation space)
         action_dim (int): the action dimension of the model (the size of the action space)
+        num_players (int): the number of players in the game.
         agent_cfg (omegaconf.DictConfig): the agent configuration. The agent specifies the reinforcement learning
             algorithm to use. For this demo, we use the A2C algorithm (https://arxiv.org/abs/1602.01783).
         model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
             that outputs both the policy over actions and the value of the state.
-        model_state_dict_path (Path): shared path to the model state dict.
+        optimizer_cfg (omegaconf.DictConfig): the optimizer configuration. For this demo we use the Adam optimizer by default.
         agent_id (int, optional): the agent id. Defaults to 0.
     """
 

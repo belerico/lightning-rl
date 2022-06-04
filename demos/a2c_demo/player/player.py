@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import gym
 import hydra
@@ -28,6 +28,7 @@ class Player(L.LightningWork):
             that outputs both the policy over actions and the value of the state.
         model_state_dict_path (Path): shared path to the model state dict.
         agent_id (int, optional): the agent id. Defaults to 0.
+        rendering_path (Union[Path, str], optional): path to the directory where to save the rendering. Defaults to None.
     """
 
     def __init__(
@@ -37,7 +38,7 @@ class Player(L.LightningWork):
         model_cfg: omegaconf.DictConfig,
         model_state_dict_path: Path,
         agent_id: int = 0,
-        rendering_path: Optional[Path] = None,
+        rendering_path: Optional[Union[Path, str]] = None,
         **worker_kwargs
     ) -> None:
         super(Player, self).__init__(worker_kwargs)
@@ -61,6 +62,8 @@ class Player(L.LightningWork):
         self.episode_counter = 0
         if rendering_path is not None:
             os.makedirs(rendering_path, exist_ok=True)
+            if isinstance(rendering_path, str):
+                rendering_path = Path(rendering_path)
         self.rendering_path = rendering_path
 
     def get_buffer(self) -> Optional[RolloutBuffer]:
@@ -174,7 +177,7 @@ class PlayersFlow(L.LightningFlow):
                 ),
             )
             self._players.append(self.get_player(i))
-    
+
     def get_player(self, i) -> Player:
         return getattr(self, "player_{}".format(i))
 
