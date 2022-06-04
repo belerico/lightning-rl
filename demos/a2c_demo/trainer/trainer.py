@@ -40,6 +40,8 @@ class Trainer(L.LightningWork):
         super(Trainer, self).__init__(worker_kwargs)
         self.agent_id = agent_id
         self.num_players = num_players
+        self._buffer = None
+        self._received_buffers = []
         model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
@@ -48,19 +50,25 @@ class Trainer(L.LightningWork):
         self.model_state_dict_path = Path("./synced_model/model_state_dict.pth")
         self.metrics = None
 
-    def run(self, signal: int, buffer: Payload):
-        if signal > 0 and buffer is not None:
+    def run(self, signal: int, agent_id: int, buffer: Payload):
+        if signal > 0 and buffer is not None and agent_id not in self._received_buffers:
+            logger.info("Trainer-{}: received buffer from Player-{}".format(self.agent_id, agent_id))
+            self._received_buffers.append(agent_id)
+            if self._buffer is None:
+                self._buffer = buffer.value
+            else:
+                self._buffer.append(buffer.value)
+        if len(self._received_buffers) == self.num_players:
             logger.info(
                 "Trainer-{}: training episode {}, buffer length: {}".format(
-                    self.agent_id, self.episode_counter, len(buffer.value)
+                    self.agent_id, self.episode_counter, len(self._buffer)
                 )
             )
-            buffer = buffer.value
-            sum_rewards = np.sum(buffer.rewards).item() / self.num_players
-            self._agent.buffer = buffer
+            sum_rewards = np.sum(self._buffer.rewards).item() / self.num_players
+            self._agent.buffer = self._buffer
             metrics = self._agent.train_step()
             torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
-            metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = len(buffer) / self.num_players
+            metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = len(self._buffer) / self.num_players
             metrics["Rewards/Agent-{}/sum_rew".format(self.agent_id)] = sum_rewards
             logger.info(
                 "Trainer-{}: Loss: {:.4f}, Policy Loss: {:.4f}, Value Loss: {:.4f}, Sum of rewards: {:.4f}".format(
@@ -71,5 +79,7 @@ class Trainer(L.LightningWork):
                     sum_rewards,
                 )
             )
+            self._buffer = None
+            self._received_buffers = []
             self.metrics = metrics
             self.episode_counter += 1

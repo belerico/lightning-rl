@@ -63,6 +63,9 @@ class Player(L.LightningWork):
             os.makedirs(rendering_path, exist_ok=True)
         self.rendering_path = rendering_path
 
+    def get_buffer(self) -> Optional[RolloutBuffer]:
+        return getattr(self, "buffer_{}".format(self.agent_id))
+
     @torch.no_grad()
     def train_episode(self) -> RolloutBuffer:
         """Samples an episode for a single agent in training mode
@@ -158,7 +161,6 @@ class PlayersFlow(L.LightningFlow):
         super().__init__()
         self.n_players = n_players
         self._players: List[Player] = []
-        self.buffer_work = BufferWork(n_players, run_once=True, parallel=True)
         for i in range(self.n_players):
             setattr(
                 self,
@@ -179,14 +181,7 @@ class PlayersFlow(L.LightningFlow):
     def run(self, signal: int) -> None:
         for i in range(self.n_players):
             self._players[i].run(signal)
-        for i in range(self.n_players):
-            self.buffer_work.run(
-                self._players[i].episode_counter,
-                self._players[i].agent_id,
-                getattr(self._players[i], "buffer_{}".format(i)),
-            )
 
     def stop(self):
-        self.buffer_work.stop()
         for i in range(self.n_players):
             self._players[i].stop()
