@@ -16,4 +16,4 @@ work_dir: ${hydra:runtime.cwd}
 num_players: 2
 max_episodes: 500
 rendering_frequency: 10
-save_rendering: True
+save_rendering: False
