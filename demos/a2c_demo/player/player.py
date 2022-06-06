@@ -27,6 +27,7 @@ class Player(L.LightningWork):
         model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
             that outputs both the policy over actions and the value of the state.
         model_state_dict_path (Path): shared path to the model state dict.
+        gamma (np.ndarray): the discount factor. Default: 0.99.
         agent_id (int, optional): the agent id. Defaults to 0.
         save_rendering (bool, optional): whether to save the rendering. Defaults to False.
         keep_last_n (int, optional): number of last gifs to keep. Defaults to -1.
@@ -39,6 +40,7 @@ class Player(L.LightningWork):
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
         model_state_dict_path: Path,
+        gamma: List[float] = [0.99],
         agent_id: int = 0,
         save_rendering: bool = False,
         keep_last_n: int = -1,
@@ -51,12 +53,18 @@ class Player(L.LightningWork):
         self._environment = gym.make(self.environment_id)
         self._environment.metadata["render_modes"] = ["rgb_array"]
         self._environment.metadata["render_fps"] = 120
-        self.input_dim, self.action_dim = Player.get_env_info(environment_id)
-        model_cfg = model_cfg
-        model = hydra.utils.instantiate(model_cfg, input_dim=self.input_dim, action_dim=self.action_dim)
+        input_dim, action_dim = Player.get_env_info(environment_id)
+        model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         self._agent = hydra.utils.instantiate(agent_cfg, model=model, optimizer=None)
-        self.agent_id = agent_id
         self.model_state_dict_path = model_state_dict_path
+        if isinstance(gamma, list):
+            gamma = np.array(gamma)
+            if gamma.ndim <= 1:
+                gamma = gamma.reshape(1, -1)
+            else:
+                raise ValueError("gamma must be a 1D array")
+        self._gamma = gamma
+        self.agent_id = agent_id
         self.episode_counter = 0
         self.save_rendering = save_rendering
         self.keep_last_n = keep_last_n
@@ -105,7 +113,7 @@ class Player(L.LightningWork):
             buffer_data[k] = np.array(v)
 
         buffer = RolloutBuffer.from_dict(buffer_data)
-        buffer.compute_returns_and_advatages()
+        buffer.compute_returns_and_advatages(gamma=self._gamma)
         return buffer
 
     @torch.no_grad()

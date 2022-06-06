@@ -18,7 +18,7 @@ class A2CAgent:
         batch_size (int, optional): size for the minibatch. Default is 32.
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
-        rewards_gamma (np.ndarray, optional): discount factor parameter. Default is np.array([0.99]).
+        entropy_coeff (float, optional): coefficient for the entropy regularization. Default is None.
         normalize_returns (bool, optional): whether to normalize the returns.
         agent_id (int, optional): The agent id.
     """
@@ -30,7 +30,7 @@ class A2CAgent:
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         batch_size: int = 32,
         clip_gradients: Optional[float] = 0.0,
-        rewards_gamma: np.ndarray = np.array([0.99]),
+        entropy_coeff: Optional[float] = None,
         normalize_returns: bool = True,
         agent_id: Optional[int] = None,
     ):
@@ -40,13 +40,13 @@ class A2CAgent:
         self.scheduler = scheduler
         self.distribution = torch.distributions.Categorical
         self.batch_size = batch_size
+        self.entropy_coeff = entropy_coeff
         self.clip_gradients = clip_gradients
         self.episode_counter = 0
         self.returns: Optional[torch.Tensor] = None
         self._buffer = None
         self.agent_id = agent_id
         self.metrics = {}
-        self.rewards_gamma = rewards_gamma
         self.normalize_returns = normalize_returns
 
     @property
@@ -54,7 +54,7 @@ class A2CAgent:
         """Get the replay buffer.
 
         Returns:
-            draive.buffer.RolloutBuffer: the replay buffer.
+            buffer (RolloutBuffer): the replay buffer.
         """
         return self._buffer
 
@@ -86,11 +86,10 @@ class A2CAgent:
 
         Args:
             observation (torch.Tensor): The observation to select an action for.
-            state (Optional[tuple], optional): The lstm state to select an action for. Defaults to None.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Returns a tuple containing the selected actions,
-            the corresponding log-probabilities, the critic values.
+            the corresponding log-probabilities and the critic values.
         """
         action_probs, value = self.model(observation)
         dist = self.distribution(probs=action_probs)
@@ -98,7 +97,9 @@ class A2CAgent:
         log_probs = dist.log_prob(selected_actions)
         return selected_actions, log_probs, value
 
-    def evaluate_action(self, observation: torch.Tensor, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def evaluate_action(
+        self, observation: torch.Tensor, actions: torch.Tensor
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         """Select an action for the given observation and optional state.
 
         Args:
@@ -106,13 +107,16 @@ class A2CAgent:
             actions (torch.Tensor): Actions to be evaluated.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Returns a tuple containing the `actions` log-probabilities and the critic values.
+            Tuple[torch.Tensor, Optional[torch.Tensor] torch.Tensor]: Returns a tuple containing the actions log-probabilities,
+            optionally it returns the entropy of the policy and the critic values.
         """
         action_probs, value = self.model(observation)
         dist = self.distribution(probs=action_probs)
-        log_probs = dist.log_prob(actions.squeeze(1))
-        return log_probs, value
-        
+        log_probs = dist.log_prob(actions.squeeze(1)).unsqueeze(1)
+        entropy = None
+        if self.entropy_coeff is not None:
+            entropy = dist.entropy()
+        return log_probs, entropy, value
 
     @torch.no_grad()
     def optimize_step(self) -> Optional[torch.Tensor]:
@@ -152,7 +156,7 @@ class A2CAgent:
         return slices, idxes
 
     def compute_loss(self) -> None:
-        """Compute the loss."""
+        """Compute the A2C loss """
 
         # Get slices and indexes for batching
         num_samples = len(self.buffer)
@@ -160,6 +164,7 @@ class A2CAgent:
 
         total_value_loss = 0
         total_policy_loss = 0
+        total_entropy_loss = 0
         for batch_num in range(len(slices) - 1):
             batch_idxes = idxes[slices[batch_num] : slices[batch_num + 1]]
             buffer_data = self.buffer[batch_idxes]
@@ -168,11 +173,13 @@ class A2CAgent:
             advantages = buffer_data["advantages"]
             returns = buffer_data["returns"]
 
-            log_probs, values = self.evaluate_action(observation, game_actions)
-            total_policy_loss -= (log_probs.unsqueeze(1) * advantages).sum()
+            log_probs, entropy, values = self.evaluate_action(observation, game_actions)
+            total_policy_loss -= (log_probs * advantages).sum()
             total_value_loss += F.smooth_l1_loss(values, returns, reduction="sum")
+            if entropy is not None:
+                total_entropy_loss -= self.entropy_coeff * entropy.sum()
 
-        loss = (total_policy_loss + total_value_loss) / num_samples
+        loss = (total_policy_loss + total_value_loss + total_entropy_loss) / num_samples
 
         self.metrics["Loss/Agent-{}/loss".format(self.agent_id)] = loss.item()
         self.metrics["Loss/Agent-{}/value_loss".format(self.agent_id)] = total_value_loss.item()

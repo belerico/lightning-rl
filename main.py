@@ -43,7 +43,7 @@ class A2CDemoFlow(L.LightningFlow):
         self.players = PlayersFlow(
             self.num_players, player_cfg, model_state_dict_path=self.trainer.model_state_dict_path
         )
-        self.logger = TensorboardWork("./logs", num_agents=1, parallel=True)
+        self.logger = TensorboardWork("./logs", parallel=True, run_once=False)
         self.gif_renderer = None
         if tester_cfg.save_rendering:
             self.gif_renderer = LitStreamlit(rendering_path=self.tester.rendering_path)
