@@ -13,7 +13,6 @@ from demos.a2c_demo.buffer.rollout import RolloutBuffer
 from . import logger
 
 
-# Simple LightningWorker
 class Trainer(L.LightningWork):
     """Worker that train the agent given the observations received by the Players.
 
