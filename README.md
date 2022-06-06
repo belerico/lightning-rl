@@ -2,7 +2,8 @@
 
 1. Get [poetry](https://python-poetry.org/docs/#installation)
 2. Run `poetry install`
-3. Run `lightning run app main.py`
+3. Get [lightning](https://lightning.ai/lightning-docs/)
+4. Run `lightning run app main.py`
 
 ## Architecture
 
