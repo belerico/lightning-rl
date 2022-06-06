@@ -157,8 +157,9 @@ class Player(L.LightningWork):
             self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
 
         if test:
-            logger.info("Tester-{}: testing episode".format(self.agent_id))
+            logger.info("Tester-{}: testing episode {}".format(self.agent_id, self.episode_counter))
             self.test_episode(signal)
+            logger.info("Tester-{}: Sum of rewards: {:.4f}".format(self.agent_id, self.test_metrics["Test/sum_rew"]))
         else:
             logger.info("Player-{}: playing episode {}".format(self.agent_id, self.episode_counter))
             buffer = self.train_episode()

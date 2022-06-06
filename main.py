@@ -1,10 +1,7 @@
-import sys
-
 import hydra
 import lightning as L
 import omegaconf
 from hydra.experimental import compose, initialize
-from lightning.utilities.app_helpers import pretty_state
 
 from demos.a2c_demo.frontend.frontend import LitStreamlit
 from demos.a2c_demo.logger.tensorboard import TensorboardWork
