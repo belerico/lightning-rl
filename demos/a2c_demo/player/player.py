@@ -10,7 +10,7 @@ import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
-from demos.a2c_demo.buffer.rollout import BufferWork, RolloutBuffer
+from demos.a2c_demo.buffer.rollout import RolloutBuffer
 from demos.a2c_demo.utils.viz import save_episode_as_gif
 
 from . import logger
