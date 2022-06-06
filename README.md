@@ -19,12 +19,6 @@ The main components of the application are:
 
 The flow of the applications is as follows:
 
-1. Each of N Players plays asynchronously the game collecting and saving the experiences gathered. Once every one of them has finished the control is passed to the trainer. Every player share the collected experiences to the BufferWork, which concatenate all the experiences received in a single buffer.
-2. The trainer receives the experiences of all players from the BufferWork and computes the gradients of the model parameters given the experiences received optimzing the Advantage Actor-Critic loss (A2C). The trainer collects also training information: losses, gradients norm, episode length, etc. 
+1. Each of N Players plays asynchronously the game collecting and saving the experiences gathered. Once every one of them has finished the control is passed to the trainer.
+2. The trainer receives the experiences of all players and computes the gradients of the model parameters given the experiences received optimzing the Advantage Actor-Critic loss (A2C). The trainer collects also training information: losses, gradients norm, episode length, etc. 
 3. The training information are logged through a Tensorboard logger.
-
-# TODOs
-
-* [x] Add logging to Tensorboard or similar
-* [x] Add multiple Workers and Player
-  * [x] Find a way to sync gradients of trainer workers before sending updated weights to the Players

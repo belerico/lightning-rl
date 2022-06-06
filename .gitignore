@@ -135,3 +135,4 @@ logs/
 synced_model/
 buffer*
 rendering/
+images/arch.xml
