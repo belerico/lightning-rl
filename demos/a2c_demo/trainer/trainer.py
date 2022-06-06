@@ -1,4 +1,5 @@
 import os
+import sys
 
 import hydra
 import lightning as L
@@ -7,6 +8,8 @@ import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
+
+from demos.a2c_demo.buffer.rollout import RolloutBuffer
 
 from . import logger
 
@@ -24,6 +27,7 @@ class Trainer(L.LightningWork):
         model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
             that outputs both the policy over actions and the value of the state.
         optimizer_cfg (omegaconf.DictConfig): the optimizer configuration. For this demo we use the Adam optimizer by default.
+        model_state_dict_path (str): the path to the model state dict. Default is "./synced_model/model_state_dict.pth".
         agent_id (int, optional): the agent id. Defaults to 0.
     """
 
@@ -35,20 +39,21 @@ class Trainer(L.LightningWork):
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
         optimizer_cfg: omegaconf.DictConfig,
+        model_state_dict_path: str = "./synced_model/model_state_dict.pth",
         agent_id: int = 0,
         **worker_kwargs
     ) -> None:
         super(Trainer, self).__init__(worker_kwargs)
         self.agent_id = agent_id
         self.num_players = num_players
-        self._buffer = None
+        self._buffer: RolloutBuffer = None
         self._received_buffers = []
         model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
         self.episode_counter = 0
-        os.makedirs("./synced_model/", exist_ok=True)
-        self.model_state_dict_path = Path("./synced_model/model_state_dict.pth")
+        os.makedirs(os.path.dirname(model_state_dict_path), exist_ok=True)
+        self.model_state_dict_path = Path(model_state_dict_path)
         self.metrics = None
 
     def run(self, signal: int, agent_id: int, buffer: Payload):

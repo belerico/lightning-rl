@@ -1,7 +1,10 @@
+import sys
+
 import hydra
 import lightning as L
 import omegaconf
 from hydra.experimental import compose, initialize
+from lightning.utilities.app_helpers import pretty_state
 
 from demos.a2c_demo.frontend.frontend import LitStreamlit
 from demos.a2c_demo.logger.tensorboard import TensorboardWork
@@ -17,14 +20,12 @@ class A2CDemoFlow(L.LightningFlow):
         trainer_cfg: omegaconf.DictConfig,
         num_players: int = 2,
         max_episodes: int = 1000,
-        save_rendering: bool = False,
-        rendering_frequency: int = 10,
+        test_every_n_episodes: int = 10,
     ):
         super().__init__()
         self.num_players = num_players
         self.max_episodes = max_episodes
-        self.save_rendering = save_rendering
-        self.rendering_frequency = rendering_frequency
+        self.test_every_n_episodes = test_every_n_episodes
         input_dim, action_dim = Player.get_env_info(player_cfg.environment_id)
         self.trainer: Trainer = hydra.utils.instantiate(
             trainer_cfg,
@@ -46,7 +47,8 @@ class A2CDemoFlow(L.LightningFlow):
             self.num_players, player_cfg, model_state_dict_path=self.trainer.model_state_dict_path
         )
         self.logger = TensorboardWork("./logs", num_agents=1, parallel=True)
-        if self.save_rendering:
+        self.gif_renderer = None
+        if tester_cfg.save_rendering:
             self.gif_renderer = LitStreamlit(rendering_path=self.tester.rendering_path)
 
     def run(self):
@@ -54,8 +56,9 @@ class A2CDemoFlow(L.LightningFlow):
         for i in range(self.num_players):
             self.trainer.run(self.players.get_player(i).episode_counter, i, self.players.get_player(i).get_buffer())
         self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
-        if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.rendering_frequency == 0:
+        if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
+            self.logger.run(self.tester.episode_counter, self.tester.test_metrics)
         if self.trainer.episode_counter >= self.max_episodes:
             self.logger.stop()
             self.tester.stop()
@@ -64,7 +67,7 @@ class A2CDemoFlow(L.LightningFlow):
 
     def configure_layout(self):
         tab_1 = {"name": "TB logs", "content": self.logger.url}
-        if self.save_rendering:
+        if self.gif_renderer is not None:
             tab_2 = {"name": "Test GIF", "content": self.gif_renderer}
             return [tab_1, tab_2]
         else:
@@ -81,7 +84,6 @@ if __name__ == "__main__":
                 config.trainer,
                 num_players=config.num_players,
                 max_episodes=config.max_episodes,
-                save_rendering=config.save_rendering,
-                rendering_frequency=config.rendering_frequency,
+                test_every_n_episodes=config.test_every_n_episodes,
             )
         )

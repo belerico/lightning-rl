@@ -28,6 +28,8 @@ class Player(L.LightningWork):
             that outputs both the policy over actions and the value of the state.
         model_state_dict_path (Path): shared path to the model state dict.
         agent_id (int, optional): the agent id. Defaults to 0.
+        save_rendering (bool, optional): whether to save the rendering. Defaults to False.
+        keep_last_n (int, optional): number of last gifs to keep. Defaults to -1.
         rendering_path (Union[Path, str], optional): path to the directory where to save the rendering. Defaults to None.
     """
 
@@ -38,33 +40,32 @@ class Player(L.LightningWork):
         model_cfg: omegaconf.DictConfig,
         model_state_dict_path: Path,
         agent_id: int = 0,
+        save_rendering: bool = False,
+        keep_last_n: int = -1,
         rendering_path: Optional[Union[Path, str]] = None,
         **worker_kwargs
     ) -> None:
         super(Player, self).__init__(worker_kwargs)
-        # Game
         setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
         self._environment = gym.make(self.environment_id)
         self._environment.metadata["render_modes"] = ["rgb_array"]
-        self._environment.metadata["render_fps"] = 80
+        self._environment.metadata["render_fps"] = 120
         self.input_dim, self.action_dim = Player.get_env_info(environment_id)
-
         model_cfg = model_cfg
         model = hydra.utils.instantiate(model_cfg, input_dim=self.input_dim, action_dim=self.action_dim)
         self._agent = hydra.utils.instantiate(agent_cfg, model=model, optimizer=None)
-
-        # Agent
         self.agent_id = agent_id
         self.model_state_dict_path = model_state_dict_path
-
-        # Misc
         self.episode_counter = 0
+        self.save_rendering = save_rendering
+        self.keep_last_n = keep_last_n
         if rendering_path is not None:
             os.makedirs(rendering_path, exist_ok=True)
             if isinstance(rendering_path, str):
                 rendering_path = Path(rendering_path)
         self.rendering_path = rendering_path
+        self.test_metrics = {}
 
     def get_buffer(self) -> Optional[RolloutBuffer]:
         return getattr(self, "buffer_{}".format(self.agent_id))
@@ -118,18 +119,25 @@ class Player(L.LightningWork):
         game_done = False
         step_counter = 0
         frames = []
+        total_reward = 0
         while not game_done:
             observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
             env_actions = self._agent.select_greedy_action(observation_tensor)
             env_actions = env_actions.numpy().flatten().tolist()
             env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
             next_observation, reward, game_done, info = self._environment.step(env_actions)
+            total_reward += reward
             observation = next_observation
-            frame = self._environment.render(mode="rgb_array")
-            frames.append(frame)
+            if self.save_rendering:
+                frame = self._environment.render(mode="rgb_array")
+                frames.append(frame)
             step_counter += 1
-        self._environment.close()
-        save_episode_as_gif(frames, path=self.rendering_path, episode_counter=episode_counter)
+        self.test_metrics["Test/sum_rew"] = total_reward
+        if self.save_rendering:
+            self._environment.close()
+            save_episode_as_gif(
+                frames, path=self.rendering_path, episode_counter=episode_counter, keep_last_n=self.keep_last_n
+            )
 
     @staticmethod
     def get_env_info(environment_id: str) -> Tuple[int, int]:
@@ -156,7 +164,7 @@ class Player(L.LightningWork):
             buffer = self.train_episode()
             logger.info("Player-{}: episode length: {}".format(self.agent_id, len(buffer)))
             setattr(self, "buffer_{}".format(self.agent_id), Payload(buffer))
-            self.episode_counter += 1
+        self.episode_counter += 1
 
 
 class PlayersFlow(L.LightningFlow):

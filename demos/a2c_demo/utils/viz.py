@@ -7,7 +7,12 @@ from matplotlib import animation
 
 
 def save_episode_as_gif(
-    frames, path="./", episode_counter=0, action_probs: Optional[List[np.ndarray]] = None, dpi: int = 72
+    frames,
+    path="./",
+    episode_counter=0,
+    action_probs: Optional[List[np.ndarray]] = None,
+    dpi: int = 72,
+    keep_last_n: int = -1,
 ):
     """
     Saves a list of frames as a gif using matplotlib.
@@ -17,7 +22,13 @@ def save_episode_as_gif(
         filename (str): Name of the gif.
         action_probs (list, optional): List of action probabilities. Defaults to None.
         dpi (int, optional): DPI of the gif. Defaults to 72.
+        keep_last_n (int, optional): Number of gifs to keep. Defaults to -1.
     """
+    if keep_last_n > 0:
+        gifs = sorted(os.listdir(path), key=lambda x: x.split("_")[1], reverse=True)
+        for gif in gifs[keep_last_n:]:
+            os.remove(os.path.join(path, gif))
+
     num_columns = 1 if action_probs is None else len(action_probs[0]) + 1
     fig_size = (frames[0].shape[1] * num_columns / dpi, frames[0].shape[0] / dpi)
     fig, axes = plt.subplots(
