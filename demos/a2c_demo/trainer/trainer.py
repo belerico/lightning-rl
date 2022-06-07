@@ -1,4 +1,5 @@
 import os
+from typing import List, Optional
 
 import hydra
 import lightning as L
@@ -45,7 +46,6 @@ class Trainer(L.LightningWork):
         self.agent_id = agent_id
         self.num_players = num_players
         self._buffer: RolloutBuffer = None
-        self._received_buffers = []
         model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
@@ -53,16 +53,14 @@ class Trainer(L.LightningWork):
         os.makedirs(os.path.dirname(model_state_dict_path), exist_ok=True)
         self.model_state_dict_path = Path(model_state_dict_path)
         self.metrics = None
+        self.has_done = False
 
-    def run(self, signal: int, agent_id: int, buffer: Payload):
-        if signal > 0 and buffer is not None and agent_id not in self._received_buffers:
-            logger.info("Trainer-{}: received buffer from Player-{}".format(self.agent_id, agent_id))
-            self._received_buffers.append(agent_id)
-            if self._buffer is None:
-                self._buffer = buffer.value
-            else:
-                self._buffer.append(buffer.value)
-        if len(self._received_buffers) == self.num_players:
+    def run(self, signal: int, buffers: Optional[List[Payload]] = None):
+        if signal > 0 and not any(buffer is None for buffer in buffers):
+            logger.info("Trainer-{}: received buffer from Players".format(self.agent_id))
+            self._buffer = buffers[0].value
+            for i in range(1, self.num_players):
+                self._buffer.append(buffers[i].value)
             logger.info(
                 "Trainer-{}: training episode {}, buffer length: {}".format(
                     self.agent_id, self.episode_counter, len(self._buffer)
@@ -84,6 +82,6 @@ class Trainer(L.LightningWork):
                 )
             )
             self._buffer = None
-            self._received_buffers = []
             self.metrics = metrics
             self.episode_counter += 1
+            self.has_done = True

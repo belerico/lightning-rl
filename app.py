@@ -18,11 +18,13 @@ class A2CDemoFlow(L.LightningFlow):
         num_players: int = 2,
         max_episodes: int = 1000,
         test_every_n_episodes: int = 10,
+        show_rl_info: bool = True,
     ):
         super().__init__()
         self.num_players = num_players
         self.max_episodes = max_episodes
         self.test_every_n_episodes = test_every_n_episodes
+        self.show_rl_info = show_rl_info
         input_dim, action_dim = Player.get_env_info(player_cfg.environment_id)
         self.trainer: Trainer = hydra.utils.instantiate(
             trainer_cfg,
@@ -49,10 +51,12 @@ class A2CDemoFlow(L.LightningFlow):
             self.gif_renderer = LitStreamlit(rendering_path=self.tester.rendering_path)
 
     def run(self):
-        self.players.run(self.trainer.episode_counter)
-        for i in range(self.num_players):
-            self.trainer.run(self.players.get_player(i).episode_counter, i, self.players.get_player(i).get_buffer())
-        self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
+        if not self.trainer.has_started or self.trainer.has_succeeded:
+            self.players.run(self.trainer.episode_counter)
+        if all(player.has_succeeded for player in self.players.players):
+            self.trainer.run(self.players[0].episode_counter, self.players.buffers())
+            if self.trainer.has_succeeded:
+                self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
             self.logger.run(self.tester.episode_counter, self.tester.test_metrics)
@@ -63,12 +67,18 @@ class A2CDemoFlow(L.LightningFlow):
             self.players.stop()
 
     def configure_layout(self):
-        tab_1 = {"name": "TB logs", "content": self.logger.url}
+        tabs = [{"name": "TB logs", "content": self.logger.url}]
         if self.gif_renderer is not None:
-            tab_2 = {"name": "Test GIF", "content": self.gif_renderer}
-            return [tab_1, tab_2]
-        else:
-            return [tab_1]
+            tabs += [{"name": "Test GIF", "content": self.gif_renderer}]
+        if self.show_rl_info:
+            tabs += [
+                {"name": "RL: intro", "content": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/"},
+                {
+                    "name": "RL: policy gradients",
+                    "content": "https://lilianweng.github.io/posts/2018-04-08-policy-gradient/",
+                },
+            ]
+        return tabs
 
 
 if __name__ == "__main__":
@@ -82,5 +92,6 @@ if __name__ == "__main__":
                 num_players=config.num_players,
                 max_episodes=config.max_episodes,
                 test_every_n_episodes=config.test_every_n_episodes,
+                show_rl_info=config.show_rl_info,
             )
         )

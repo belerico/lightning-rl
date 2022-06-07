@@ -9,6 +9,7 @@ import omegaconf
 import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
+from lightning.structures import List as LightningList
 
 from demos.a2c_demo.buffer.rollout import RolloutBuffer
 from demos.a2c_demo.utils.viz import save_episode_as_gif
@@ -75,7 +76,7 @@ class Player(L.LightningWork):
         self.rendering_path = rendering_path
         self.test_metrics = {}
 
-    def get_buffer(self) -> Optional[RolloutBuffer]:
+    def get_buffer(self) -> Optional[Payload]:
         return getattr(self, "buffer_{}".format(self.agent_id))
 
     @torch.no_grad()
@@ -180,28 +181,30 @@ class PlayersFlow(L.LightningFlow):
     def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig, model_state_dict_path: Path):
         super().__init__()
         self.n_players = n_players
-        self._players: List[Player] = []
-        for i in range(self.n_players):
-            setattr(
-                self,
-                "player_{}".format(i),
+        self.episode_counter = 0
+        self.players: LightningList[Player] = LightningList(
+            *[
                 hydra.utils.instantiate(
                     player_cfg,
                     agent_id=i,
                     model_state_dict_path=model_state_dict_path,
                     run_once=True,
                     parallel=True,
-                ),
-            )
-            self._players.append(self.get_player(i))
+                )
+                for i in range(self.n_players)
+            ]
+        )
 
-    def get_player(self, i) -> Player:
-        return getattr(self, "player_{}".format(i))
+    def __getitem__(self, key: int) -> Player:
+        return self.players[key]
+    
+    def buffers(self) -> List[Payload]:
+        return [player.get_buffer() for player in self.players]
 
     def run(self, signal: int) -> None:
-        for i in range(self.n_players):
-            self._players[i].run(signal)
+        for player in self.players:
+            player.run(signal)
 
     def stop(self):
-        for i in range(self.n_players):
-            self._players[i].stop()
+        for player in self.players:
+            player.stop()
