@@ -1,0 +1,5 @@
+defaults:
+  - default
+  - _self_
+
+weight_decay: 1e-5

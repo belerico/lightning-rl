@@ -1,0 +1,8 @@
+_target_: demos.a2c_demo.player.player.Player
+agent_cfg: ${agent}
+model_cfg: ${model}
+environment_id: ${environment.id}
+gamma:
+  - 0.99
+_recursive_: False
+_convert_: partial

@@ -1,0 +1,5 @@
+run:
+  dir: logs/runs/${now:%Y-%m-%d_%H-%M-%S}
+sweep:
+  dir: logs/multiruns/${now:%Y-%m-%d_%H-%M-%S}
+  subdir: ${hydra.job.override_dirname}

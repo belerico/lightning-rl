@@ -1,0 +1,19 @@
+# @package _global_
+
+# specify here default training configuration
+defaults:
+  - _self_
+  - agent: default.yaml
+  - optimizer: default.yaml
+  - model: default.yaml
+  - hydra: default.yaml
+  - environment: default.yaml
+  - player: default.yaml
+  - tester: default.yaml
+  - trainer: default.yaml
+
+work_dir: ${hydra:runtime.cwd}
+num_players: 2
+max_episodes: 500
+test_every_n_episodes: 10
+show_rl_info: True

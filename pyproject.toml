@@ -1,0 +1,90 @@
+[tool.poetry]
+name = "a2c-demo"
+version = "0.1.0"
+description = ""
+authors = ["Federico Belotti"]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+torch = ">=1.10.2"
+numpy = ">=1.21"
+pytorch-lightning = ">=1.5.10"
+matplotlib = "3.5.1"
+gym = {version = "^0.21.0", extras = ["box2d"]}
+hydra-core = "1.1.1"
+tensorboard = "^2.8.0"
+streamlit = "^1.9.2"
+
+[tool.poetry.dev-dependencies]
+black = {version = ">=22.1.0", allow-prereleases = true}
+flake8 = "4.0.1"
+isort = "5.10.1"
+pre-commit = "2.16.0"
+autoflake = "1.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+# Black formatting
+[tool.black]
+line_length = 120
+include = '\.pyi?$'
+exclude = '''
+/(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+'''
+
+# iSort
+[tool.isort]
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+skip_gitignore = true
+
+# Pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--strict-markers --disable-pytest-warnings"
+markers = [
+    "benchmark: mark test as a benchmark",
+]
+
+# Pytest coverage
+[tool.coverage.run]
+omit = []
+
+[tool.prettier]
+tab_width = 2
+
+[tool.interrogate]
+ignore_init_method = true
+ignore_init_module = false
+ignore_magic = false
+ignore_semiprivate = false
+ignore_private = false
+ignore_module = true
+ignore_property_decorators = false
+fail_under = 40
+verbose = 2
+omit_covered_files = false
+quiet = false
+whitelist_regex = []
+color = true
+exclude = ["examples", "tests","local_scripts"]
+ignore_regex = [ "^get$", "^mock_.*", ".*BaseClass.*"]

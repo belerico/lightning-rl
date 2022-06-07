@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+.storage/
+.shared/
+demos/mnist
+logs/
+synced_model/
+buffer*
+rendering/
+images/arch.xml

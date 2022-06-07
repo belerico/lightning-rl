@@ -1,0 +1,5 @@
+_target_: demos.a2c_demo.model.mlp.PolicyMLP
+act_fun:
+  _target_: torch.nn.ReLU
+hidden_dims:
+  - 128
