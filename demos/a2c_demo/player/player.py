@@ -16,8 +16,6 @@ from demos.a2c_demo.utils.viz import save_episode_as_gif
 
 from . import logger
 
-
-# Simple LightningWorker
 class Player(L.LightningWork):
     """Worker that wraps a gym environment and plays in it.
 
@@ -141,9 +139,9 @@ class Player(L.LightningWork):
                 frame = self._environment.render(mode="rgb_array")
                 frames.append(frame)
             step_counter += 1
+        self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
         if self.save_rendering:
-            self._environment.close()
             save_episode_as_gif(
                 frames, path=self.rendering_path, episode_counter=episode_counter, keep_last_n=self.keep_last_n
             )

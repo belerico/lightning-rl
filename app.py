@@ -2,6 +2,8 @@ import hydra
 import lightning as L
 import omegaconf
 from hydra.experimental import compose, initialize
+from lightning.runners import MultiProcessRuntime
+from pympler import asizeof
 
 from demos.a2c_demo.frontend.frontend import LitStreamlit
 from demos.a2c_demo.logger.tensorboard import TensorboardWork
@@ -56,6 +58,8 @@ class A2CDemoFlow(L.LightningFlow):
         if all(player.has_succeeded for player in self.players.players):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
             if self.trainer.has_succeeded:
+                self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
+                self.trainer.metrics.update({"Game/Episodes": self.trainer.episode_counter})
                 self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
