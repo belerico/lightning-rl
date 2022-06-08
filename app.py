@@ -64,6 +64,7 @@ class A2CDemoFlow(L.LightningFlow):
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
             if self.tester.has_succeeded:
+                self.tester.test_metrics.update({"Game/Test episodes": self.tester.episode_counter})
                 self.logger.run(self.tester.episode_counter, self.tester.test_metrics)
         if self.trainer.episode_counter >= self.max_episodes:
             self.logger.stop()
