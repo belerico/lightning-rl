@@ -155,7 +155,7 @@ class A2CAgent:
         return slices, idxes
 
     def compute_loss(self) -> None:
-        """Compute the A2C loss """
+        """Compute the A2C loss"""
 
         # Get slices and indexes for batching
         num_samples = len(self.buffer)

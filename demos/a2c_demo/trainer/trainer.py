@@ -40,9 +40,9 @@ class Trainer(L.LightningWork):
         optimizer_cfg: omegaconf.DictConfig,
         model_state_dict_path: str = "./synced_model/model_state_dict.pth",
         agent_id: int = 0,
-        **worker_kwargs
+        **work_kwargs
     ) -> None:
-        super(Trainer, self).__init__(worker_kwargs)
+        super(Trainer, self).__init__(work_kwargs)
         self.agent_id = agent_id
         self.num_players = num_players
         self._buffer: RolloutBuffer = None

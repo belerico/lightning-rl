@@ -2,7 +2,6 @@ import hydra
 import lightning as L
 import omegaconf
 from hydra.experimental import compose, initialize
-from lightning.runners import MultiProcessRuntime
 from pympler import asizeof
 
 from demos.a2c_demo.frontend.frontend import LitStreamlit
