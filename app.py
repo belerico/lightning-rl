@@ -4,13 +4,13 @@ import omegaconf
 from hydra.experimental import compose, initialize
 from pympler import asizeof
 
-from demos.a2c_demo.frontend.frontend import LitStreamlit
-from demos.a2c_demo.logger.tensorboard import TensorboardWork
-from demos.a2c_demo.player.player import Player, PlayersFlow
-from demos.a2c_demo.trainer.trainer import Trainer
+from lightning_rl.frontend.frontend import LitStreamlit
+from lightning_rl.logger.tensorboard import TensorboardWork
+from lightning_rl.player.player import Player, PlayersFlow
+from lightning_rl.trainer.trainer import Trainer
 
 
-class A2CDemoFlow(L.LightningFlow):
+class RLDemoFlow(L.LightningFlow):
     def __init__(
         self,
         player_cfg: omegaconf.DictConfig,
@@ -58,7 +58,7 @@ class A2CDemoFlow(L.LightningFlow):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
             if self.trainer.has_succeeded:
                 self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
-                self.trainer.metrics.update({"Game/Episodes": self.trainer.episode_counter})
+                self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
                 self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     with initialize(config_path="./demos/a2c_demo/configs/"):
         config = compose(config_name="config.yaml")
         app = L.LightningApp(
-            A2CDemoFlow(
+            RLDemoFlow(
                 config.player,
                 config.tester,
                 config.trainer,

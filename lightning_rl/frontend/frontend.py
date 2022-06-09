@@ -6,7 +6,7 @@ import streamlit as st
 from lightning.frontend.stream_lit import StreamlitFrontend
 from lightning.storage.path import Path
 
-from demos import ROOT_DIR
+from lightning_rl import ROOT_DIR
 
 
 def render_gif(state) -> None:

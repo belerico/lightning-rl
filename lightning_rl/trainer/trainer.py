@@ -9,7 +9,7 @@ import torch
 from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
-from demos.a2c_demo.buffer.rollout import RolloutBuffer
+from lightning_rl.buffer.rollout import RolloutBuffer
 
 from . import logger
 

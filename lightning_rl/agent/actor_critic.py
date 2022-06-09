@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from demos.a2c_demo.buffer.rollout import RolloutBuffer
+from lightning_rl.buffer.rollout import RolloutBuffer
 
 
 class A2CAgent:

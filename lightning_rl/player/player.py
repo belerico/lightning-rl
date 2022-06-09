@@ -11,8 +11,8 @@ from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 from lightning.structures import List as LightningList
 
-from demos.a2c_demo.buffer.rollout import RolloutBuffer
-from demos.a2c_demo.utils.viz import save_episode_as_gif
+from lightning_rl.buffer.rollout import RolloutBuffer
+from lightning_rl.utils.viz import save_episode_as_gif
 
 from . import logger
 
