@@ -130,9 +130,9 @@ dmypy.json
 
 .storage/
 .shared/
-demos/mnist
 logs/
 synced_model/
-buffer*
+buffer_*
 rendering/
 images/arch.xml
+.vscode

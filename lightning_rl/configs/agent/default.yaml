@@ -1,4 +1,4 @@
 _target_: lightning_rl.agent.actor_critic.A2CAgent
-batch_size: 256
+batch_size: 64
 clip_gradients: 0.5
 entropy_coeff: null
