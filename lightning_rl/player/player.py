@@ -56,6 +56,8 @@ class Player(L.LightningWork):
         input_dim, action_dim = Player.get_env_info(environment_id)
         model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         self._agent = hydra.utils.instantiate(agent_cfg, model=model, optimizer=None)
+        if isinstance(model_state_dict_path, str):
+            model_state_dict_path = Path(model_state_dict_path)
         self.model_state_dict_path = model_state_dict_path
         if isinstance(gamma, list):
             gamma = np.array(gamma)
@@ -67,10 +69,10 @@ class Player(L.LightningWork):
         self.agent_id = agent_id
         self.episode_counter = 0
         self.save_rendering = save_rendering
-        self.keep_last_n = keep_last_n
+        self._keep_last_n = keep_last_n
         if rendering_path is not None:
-            os.makedirs(rendering_path, exist_ok=True)
             if isinstance(rendering_path, str):
+                os.makedirs(rendering_path, exist_ok=True)
                 rendering_path = Path(rendering_path)
         self.rendering_path = rendering_path
         self.test_metrics = {}
@@ -144,7 +146,7 @@ class Player(L.LightningWork):
         self.test_metrics["Test/sum_rew"] = total_reward
         if self.save_rendering:
             save_episode_as_gif(
-                frames, path=self.rendering_path, episode_counter=episode_counter, keep_last_n=self.keep_last_n
+                frames, path=self.rendering_path, episode_counter=episode_counter, keep_last_n=self._keep_last_n
             )
 
     @staticmethod

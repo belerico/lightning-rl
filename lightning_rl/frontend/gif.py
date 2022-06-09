@@ -1,4 +1,3 @@
-import base64
 import os
 from typing import Optional
 
@@ -17,14 +16,14 @@ def render_gif(state: AppState) -> None:
     st_autorefresh(5000)
     _left, mid, _right = st.columns([0.2, 5, 0.2])
     with mid:
-        if state is not None and os.path.exists(state.rendering_path):
+        if state.rendering_path is not None and os.path.exists(state.rendering_path):
             gifs = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)
             if len(gifs) > 0 and os.path.exists(os.path.join(state.rendering_path, gifs[0])):
                 mid.image(os.path.join(state.rendering_path, gifs[0]), width=600, use_column_width=True)
             else:
-                st.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=400)
+                mid.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=600, use_column_width=True)
         else:
-            st.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=400)
+            mid.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=600, use_column_width=True)
 
 
 class GIFRender(L.LightningFlow):
@@ -34,12 +33,12 @@ class GIFRender(L.LightningFlow):
         rendering_path (Path): Path to the directory where the GIFs are stored.
     """
 
-    def __init__(self, rendering_path: Path):
+    def __init__(self, rendering_path: Optional[Path] = None):
         super().__init__()
         self.rendering_path = rendering_path
 
     def run(self) -> None:
-        if self.rendering_path.exists():
+        if self.rendering_path is not None and self.rendering_path.exists_remote():
             self.rendering_path.get(overwrite=True)
 
     def configure_layout(self):

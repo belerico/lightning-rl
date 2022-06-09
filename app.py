@@ -2,7 +2,6 @@ import hydra
 import lightning as L
 import omegaconf
 from hydra import compose, initialize
-from lightning.runners import MultiProcessRuntime
 from pympler import asizeof
 
 from lightning_rl.frontend.gif import GIFRender
@@ -48,9 +47,7 @@ class RLDemoFlow(L.LightningFlow):
             self.num_players, player_cfg, model_state_dict_path=self.trainer.model_state_dict_path
         )
         self.logger = TensorboardWork("./logs", parallel=True, run_once=False)
-        self.gif_renderer = None
-        if tester_cfg.save_rendering:
-            self.gif_renderer = GIFRender(rendering_path=self.tester.rendering_path)
+        self.gif_renderer = GIFRender()
 
     def run(self):
         if not self.trainer.has_started or self.trainer.has_succeeded:
@@ -67,6 +64,7 @@ class RLDemoFlow(L.LightningFlow):
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
             if self.tester.has_succeeded:
+                self.gif_renderer.rendering_path = self.tester.rendering_path
                 self.tester.test_metrics.update({"Game/Test episodes": self.tester.episode_counter})
                 self.logger.run(self.tester.episode_counter, self.tester.test_metrics)
         if self.trainer.episode_counter >= self.max_episodes:
@@ -77,8 +75,7 @@ class RLDemoFlow(L.LightningFlow):
 
     def configure_layout(self):
         tabs = [{"name": "TB logs", "content": self.logger.url}]
-        if self.gif_renderer is not None:
-            tabs += [{"name": "Test GIF", "content": self.gif_renderer}]
+        tabs += [{"name": "Test GIF", "content": self.gif_renderer}]
         if self.show_rl_info:
             tabs += [
                 {"name": "RL: intro", "content": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/"},
