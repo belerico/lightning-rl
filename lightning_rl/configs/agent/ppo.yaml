@@ -1,0 +1,8 @@
+defaults:
+  - default
+  - _self_
+
+_target_: lightning_rl.agent.ppo.PPOAgent
+epochs: 10
+clip_coeff: 0.2
+shuffle: False

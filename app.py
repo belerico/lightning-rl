@@ -1,7 +1,8 @@
 import hydra
 import lightning as L
 import omegaconf
-from hydra.experimental import compose, initialize
+from hydra import compose, initialize
+from lightning.runners import MultiProcessRuntime
 from pympler import asizeof
 
 from lightning_rl.frontend.frontend import LitStreamlit
@@ -53,12 +54,15 @@ class RLDemoFlow(L.LightningFlow):
 
     def run(self):
         if not self.trainer.has_started or self.trainer.has_succeeded:
+            if self.players[0].episode_counter == 0:
+                self.trainer.run(self.players[0].episode_counter)
             self.players.run(self.trainer.episode_counter)
         if all(player.has_succeeded for player in self.players.players):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
             if self.trainer.has_succeeded:
-                self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
-                self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
+                if self.trainer.metrics is not None:
+                    self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
+                    self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
                 self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(self.trainer.episode_counter, test=True)
@@ -88,7 +92,7 @@ class RLDemoFlow(L.LightningFlow):
 
 if __name__ == "__main__":
     with initialize(config_path="./lightning_rl/configs/"):
-        config = compose(config_name="config.yaml")
+        config = compose(config_name="config.yaml", overrides=["agent=ppo"])
         app = L.LightningApp(
             RLDemoFlow(
                 config.player,
@@ -100,3 +104,4 @@ if __name__ == "__main__":
                 show_rl_info=config.show_rl_info,
             )
         )
+        MultiProcessRuntime(app).dispatch()

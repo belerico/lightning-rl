@@ -25,7 +25,7 @@ def save_episode_as_gif(
         keep_last_n (int, optional): Number of gifs to keep. Defaults to -1.
     """
     if keep_last_n > 0:
-        gifs = sorted(os.listdir(path), key=lambda x: x.split("_")[1], reverse=True)
+        gifs = sorted(os.listdir(path), key=lambda x: int(os.path.splitext(x)[0].split("_")[1]), reverse=True)
         for gif in gifs[keep_last_n:]:
             os.remove(os.path.join(path, gif))
 
