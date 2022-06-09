@@ -5,6 +5,8 @@ import tensorboard
 from lightning.storage.path import Path
 from pytorch_lightning.loggers import TensorBoardLogger
 
+from lightning_rl.utils.utils import find_free_port, is_port_used
+
 
 class TensorboardWork(L.LightningWork):
     """Tensorboard logger as a LightningWork
@@ -16,11 +18,13 @@ class TensorboardWork(L.LightningWork):
         **work_kwargs: additional arguments to pass to LightningWork.
     """
 
-    def __init__(self, log_dir: str, host: str = "localhost", port: str = "6006", **work_kwargs):
+    def __init__(self, log_dir: str, port: str = "6006", **work_kwargs):
         super().__init__(**work_kwargs)
         self.log_dir = Path(log_dir)
         self._tb = tensorboard.program.TensorBoard()
-        self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", host, "--port", port])
+        if is_port_used(int(port), host=self.host):
+            port = find_free_port(host=self.host)
+        self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", self.host, "--port", port])
         self.url = self._tb.launch()
         self._logger = TensorBoardLogger(save_dir=self.log_dir.name, name="a2c_demo")
 

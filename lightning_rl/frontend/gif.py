@@ -2,7 +2,6 @@ import base64
 import os
 
 import lightning as L
-import streamlit as st
 from lightning.frontend.stream_lit import StreamlitFrontend
 from lightning.storage.path import Path
 
@@ -10,6 +9,10 @@ from lightning_rl import ROOT_DIR
 
 
 def render_gif(state) -> None:
+    import streamlit as st
+    from streamlit_autorefresh import st_autorefresh
+
+    st_autorefresh(interval=2000, limit=None, key="refresh")
     if state is not None and os.path.exists(state.rendering_path):
         gifs = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)
         if len(gifs) > 0:

@@ -1658,6 +1658,17 @@ validators = "*"
 watchdog = {version = "*", markers = "platform_system != \"Darwin\""}
 
 [[package]]
+name = "streamlit-autorefresh"
+version = "0.0.1"
+description = "Simple way to autorefresh your Streamlit apps"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+streamlit = ">=0.75"
+
+[[package]]
 name = "tensorboard"
 version = "2.9.0"
 description = "TensorBoard lets you watch Tensors Flow"
@@ -1973,7 +1984,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "f9d89d9902da77853b0ad0b3a348d7130f33c6ad6861c7482e8bb9758abb607a"
+content-hash = "3b57f1300793e0786ed98c1b1682b2e8987f5d101886de0c594a0e491485071e"
 
 [metadata.files]
 absl-py = [
@@ -3279,6 +3290,10 @@ stack-data = [
 streamlit = [
     {file = "streamlit-1.10.0-py2.py3-none-any.whl", hash = "sha256:4febd37144a62177e583d6970ab50f351a2bfd4eb112cf19e38c25b12246a4db"},
     {file = "streamlit-1.10.0.tar.gz", hash = "sha256:9479d623dd4bec1fc7bd27e85d5012672351210e640889022ee7b4631c4efb2c"},
+]
+streamlit-autorefresh = [
+    {file = "streamlit-autorefresh-0.0.1.tar.gz", hash = "sha256:1f25e3c7de26fa51d8bc2934cc05ea24b853d66148f110bcb1e4fc0e9279ec00"},
+    {file = "streamlit_autorefresh-0.0.1-py3-none-any.whl", hash = "sha256:c3a1a8a209d575cca17648cfb125b423bf001476e4d718b1fcc30c2d36c94c64"},
 ]
 tensorboard = [
     {file = "tensorboard-2.9.0-py3-none-any.whl", hash = "sha256:bd78211076dca5efa27260afacfaa96cd05c7db12a6c09cc76a1d6b2987ca621"},

@@ -104,4 +104,3 @@ if __name__ == "__main__":
                 show_rl_info=config.show_rl_info,
             )
         )
-        MultiProcessRuntime(app).dispatch()
