@@ -5,7 +5,7 @@ from hydra import compose, initialize
 from lightning.runners import MultiProcessRuntime
 from pympler import asizeof
 
-from lightning_rl.frontend.frontend import LitStreamlit
+from lightning_rl.frontend.gif import GIFRender
 from lightning_rl.logger.tensorboard import TensorboardWork
 from lightning_rl.player.player import Player, PlayersFlow
 from lightning_rl.trainer.trainer import Trainer
@@ -50,7 +50,7 @@ class RLDemoFlow(L.LightningFlow):
         self.logger = TensorboardWork("./logs", parallel=True, run_once=False)
         self.gif_renderer = None
         if tester_cfg.save_rendering:
-            self.gif_renderer = LitStreamlit(rendering_path=self.tester.rendering_path)
+            self.gif_renderer = GIFRender(rendering_path=self.tester.rendering_path)
 
     def run(self):
         if not self.trainer.has_started or self.trainer.has_succeeded:
