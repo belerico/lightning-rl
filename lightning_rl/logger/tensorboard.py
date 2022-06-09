@@ -23,10 +23,10 @@ class TensorboardWork(L.LightningWork):
         self.log_dir = Path(log_dir)
         self._tb = tensorboard.program.TensorBoard()
         if is_port_used(int(port), host=self.host):
-            port = find_free_port(host=self.host)
+            port = str(find_free_port(host=self.host))
         self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", self.host, "--port", port])
         self.url = self._tb.launch()
-        self._logger = TensorBoardLogger(save_dir=self.log_dir.name, name="a2c_demo")
+        self._logger = TensorBoardLogger(save_dir=self.log_dir.name, name="lightning-rl")
 
     def run(self, episode_counter: int, metrics: Optional[Dict[str, Any]] = None):
         if metrics is not None:

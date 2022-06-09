@@ -1,31 +1,30 @@
 import base64
 import os
+from typing import Optional
 
 import lightning as L
 from lightning.frontend.stream_lit import StreamlitFrontend
 from lightning.storage.path import Path
+from lightning.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
 
 
-def render_gif(state) -> None:
+def render_gif(state: AppState) -> None:
     import streamlit as st
     from streamlit_autorefresh import st_autorefresh
 
-    st_autorefresh(interval=2000, limit=None, key="refresh")
-    if state is not None and os.path.exists(state.rendering_path):
-        gifs = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)
-        if len(gifs) > 0:
-            file_ = open(os.path.join(state.rendering_path, gifs[0]), "rb")
-            contents = file_.read()
-            data_url = base64.b64encode(contents).decode("utf-8")
-            file_.close()
-            st.markdown(
-                f'<img src="data:image/gif;base64,{data_url}" >',
-                unsafe_allow_html=True,
-            )
+    st_autorefresh(5000)
+    _left, mid, _right = st.columns([0.2, 5, 0.2])
+    with mid:
+        if state is not None and os.path.exists(state.rendering_path):
+            gifs = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)
+            if len(gifs) > 0 and os.path.exists(os.path.join(state.rendering_path, gifs[0])):
+                mid.image(os.path.join(state.rendering_path, gifs[0]), width=600, use_column_width=True)
+            else:
+                st.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=400)
         else:
-            st.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"))
+            st.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=400)
 
 
 class GIFRender(L.LightningFlow):
