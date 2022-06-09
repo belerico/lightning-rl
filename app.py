@@ -87,7 +87,7 @@ class RLDemoFlow(L.LightningFlow):
 
 
 if __name__ == "__main__":
-    with initialize(config_path="./demos/a2c_demo/configs/"):
+    with initialize(config_path="./lightning_rl/configs/"):
         config = compose(config_name="config.yaml")
         app = L.LightningApp(
             RLDemoFlow(
