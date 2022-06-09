@@ -13,11 +13,11 @@ class TensorboardWork(L.LightningWork):
         log_dir (str): where to save logs.
         host (str): host to run tensorboard.
         port (str): port to run tensorboard.
-        **worker_kwargs: additional arguments to pass to LightningWork.
+        **work_kwargs: additional arguments to pass to LightningWork.
     """
 
-    def __init__(self, log_dir: str, host: str = "localhost", port: str = "6006", **worker_kwargs):
-        super().__init__(**worker_kwargs)
+    def __init__(self, log_dir: str, host: str = "localhost", port: str = "6006", **work_kwargs):
+        super().__init__(**work_kwargs)
         self.log_dir = Path(log_dir)
         self._tb = tensorboard.program.TensorBoard()
         self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", host, "--port", port])

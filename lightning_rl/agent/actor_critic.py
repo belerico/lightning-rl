@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from demos.a2c_demo.buffer.rollout import RolloutBuffer
+from lightning_rl.buffer.rollout import RolloutBuffer
 
 
 class A2CAgent:
@@ -155,7 +155,7 @@ class A2CAgent:
         return slices, idxes
 
     def compute_loss(self) -> None:
-        """Compute the A2C loss """
+        """Compute the A2C loss"""
 
         # Get slices and indexes for batching
         num_samples = len(self.buffer)

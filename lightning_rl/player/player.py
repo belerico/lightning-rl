@@ -11,13 +11,12 @@ from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 from lightning.structures import List as LightningList
 
-from demos.a2c_demo.buffer.rollout import RolloutBuffer
-from demos.a2c_demo.utils.viz import save_episode_as_gif
+from lightning_rl.buffer.rollout import RolloutBuffer
+from lightning_rl.utils.viz import save_episode_as_gif
 
 from . import logger
 
 
-# Simple LightningWorker
 class Player(L.LightningWork):
     """Worker that wraps a gym environment and plays in it.
 
@@ -46,9 +45,9 @@ class Player(L.LightningWork):
         save_rendering: bool = False,
         keep_last_n: int = -1,
         rendering_path: Optional[Union[Path, str]] = None,
-        **worker_kwargs
+        **work_kwargs
     ) -> None:
-        super(Player, self).__init__(worker_kwargs)
+        super(Player, self).__init__(work_kwargs)
         setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
         self._environment = gym.make(self.environment_id)
@@ -141,9 +140,9 @@ class Player(L.LightningWork):
                 frame = self._environment.render(mode="rgb_array")
                 frames.append(frame)
             step_counter += 1
+        self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
         if self.save_rendering:
-            self._environment.close()
             save_episode_as_gif(
                 frames, path=self.rendering_path, episode_counter=episode_counter, keep_last_n=self.keep_last_n
             )
@@ -197,7 +196,7 @@ class PlayersFlow(L.LightningFlow):
 
     def __getitem__(self, key: int) -> Player:
         return self.players[key]
-    
+
     def buffers(self) -> List[Payload]:
         return [player.get_buffer() for player in self.players]
 

@@ -1,7 +1,8 @@
-_target_: demos.a2c_demo.player.player.Player
+_target_: lightning_rl.player.player.Player
 agent_cfg: ${agent}
 model_cfg: ${model}
 environment_id: ${environment.id}
-save_rendering: False
+save_rendering: True
+keep_last_n: 5
 rendering_path: "./rendering"
 _recursive_: False

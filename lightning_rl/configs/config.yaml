@@ -13,7 +13,7 @@ defaults:
   - trainer: default.yaml
 
 work_dir: ${hydra:runtime.cwd}
-num_players: 2
+num_players: 4
 max_episodes: 500
 test_every_n_episodes: 10
 show_rl_info: True

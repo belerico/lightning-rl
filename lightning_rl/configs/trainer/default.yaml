@@ -1,4 +1,4 @@
-_target_: demos.a2c_demo.trainer.trainer.Trainer
+_target_: lightning_rl.trainer.trainer.Trainer
 agent_cfg: ${agent}
 model_cfg: ${model}
 optimizer_cfg: ${optimizer}

@@ -1,4 +1,4 @@
-_target_: demos.a2c_demo.agent.actor_critic.A2CAgent
+_target_: lightning_rl.agent.actor_critic.A2CAgent
 batch_size: 256
 clip_gradients: 0.5
 entropy_coeff: null
