@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "a2c-demo"
+name = "lightning-rl"
 version = "0.1.0"
 description = ""
 authors = ["Federico Belotti"]

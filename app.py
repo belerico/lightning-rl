@@ -4,6 +4,7 @@ import omegaconf
 from hydra import compose, initialize
 from pympler import asizeof
 
+from lightning_rl.frontend.config import EditConfUI
 from lightning_rl.frontend.gif import GIFRender
 from lightning_rl.logger.tensorboard import TensorboardWork
 from lightning_rl.player.player import Player, PlayersFlow
@@ -46,35 +47,38 @@ class RLDemoFlow(L.LightningFlow):
         self.players = PlayersFlow(
             self.num_players, player_cfg, model_state_dict_path=self.trainer.model_state_dict_path
         )
-        self.logger = TensorboardWork("./logs", parallel=True, run_once=False)
+        self.logger = TensorboardWork("./logs", parallel=True, run_once=True)
         self.gif_renderer = GIFRender()
+        self.edit_conf = EditConfUI()
 
     def run(self):
-        if not self.trainer.has_started or self.trainer.has_succeeded:
-            if self.players[0].episode_counter == 0:
-                self.trainer.run(self.players[0].episode_counter)
-            self.players.run(self.trainer.episode_counter)
-        if all(player.has_succeeded for player in self.players.players):
-            self.trainer.run(self.players[0].episode_counter, self.players.buffers())
-            if self.trainer.has_succeeded:
-                if self.trainer.metrics is not None:
-                    self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
-                    self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
-                self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
-        if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
-            self.tester.run(self.trainer.episode_counter, test=True)
-            if self.tester.has_succeeded:
-                self.gif_renderer.rendering_path = self.tester.rendering_path
-                self.tester.test_metrics.update({"Game/Test episodes": self.tester.episode_counter})
-                self.logger.run(self.tester.episode_counter, self.tester.test_metrics)
-        if self.trainer.episode_counter >= self.max_episodes:
-            self.logger.stop()
-            self.tester.stop()
-            self.trainer.stop()
-            self.players.stop()
+        if self.edit_conf.train:
+            if not self.trainer.has_started or self.trainer.has_succeeded:
+                if self.players[0].episode_counter == 0:
+                    self.trainer.run(self.players[0].episode_counter)
+                self.players.run(self.trainer.episode_counter)
+            if all(player.has_succeeded for player in self.players.players):
+                self.trainer.run(self.players[0].episode_counter, self.players.buffers())
+                if self.trainer.has_succeeded:
+                    if self.trainer.metrics is not None:
+                        self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
+                        self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
+                    self.logger.run(self.trainer.episode_counter, self.trainer.metrics)
+            if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
+                self.tester.run(self.trainer.episode_counter, test=True)
+                if self.tester.has_succeeded:
+                    self.gif_renderer.rendering_path = self.tester.rendering_path
+                    self.tester.test_metrics.update({"Game/Test episodes": self.tester.episode_counter})
+                    self.logger.run(self.tester.episode_counter, self.tester.test_metrics)
+            if self.trainer.episode_counter >= self.max_episodes:
+                self.logger.stop()
+                self.tester.stop()
+                self.trainer.stop()
+                self.players.stop()
 
     def configure_layout(self):
-        tabs = [{"name": "TB logs", "content": self.logger.url}]
+        tabs = [{"name": "TB logs", "content": self.edit_conf}]
+        tabs += [{"name": "TB logs", "content": self.logger.url}]
         tabs += [{"name": "Test GIF", "content": self.gif_renderer}]
         if self.show_rl_info:
             tabs += [

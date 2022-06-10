@@ -9,21 +9,21 @@ from lightning.utilities.state import AppState
 from lightning_rl import ROOT_DIR
 
 
-def render_gif(state: AppState) -> None:
+def render_gif(state: Optional[AppState] = None) -> None:
     import streamlit as st
     from streamlit_autorefresh import st_autorefresh
 
     st_autorefresh(5000)
     _left, mid, _right = st.columns([0.2, 5, 0.2])
     with mid:
-        if state.rendering_path is not None and os.path.exists(state.rendering_path):
+        if state is not None and state.rendering_path is not None and os.path.exists(state.rendering_path):
             gifs = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)
             if len(gifs) > 0 and os.path.exists(os.path.join(state.rendering_path, gifs[0])):
                 mid.image(os.path.join(state.rendering_path, gifs[0]), width=600, use_column_width=True)
             else:
-                mid.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=600, use_column_width=True)
+                mid.image(os.path.join(ROOT_DIR, "..", "images", "just_wait.gif"), width=600, use_column_width=True)
         else:
-            mid.image(os.path.join(ROOT_DIR, "..", "images", "lightning.png"), width=600, use_column_width=True)
+            mid.image(os.path.join(ROOT_DIR, "..", "images", "just_wait.gif"), width=600, use_column_width=True)
 
 
 class GIFRender(L.LightningFlow):
@@ -43,3 +43,7 @@ class GIFRender(L.LightningFlow):
 
     def configure_layout(self):
         return StreamlitFrontend(render_fn=render_gif)
+
+
+if __name__ == "__main__":
+    render_gif()
