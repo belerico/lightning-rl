@@ -62,7 +62,7 @@ class Player(L.LightningWork):
         self.episode_counter = 0
         self.save_rendering = save_rendering
         self._keep_last_n = keep_last_n
-        self.rendering_path: Drive = Drive("lit://renderings")
+        self.rendering_path: Drive = Drive("lit://rendering")
         os.makedirs(str(self.rendering_path), exist_ok=True)
         self.test_metrics = {}
 
