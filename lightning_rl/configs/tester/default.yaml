@@ -4,5 +4,4 @@ model_cfg: ${model}
 environment_id: ${environment.id}
 save_rendering: True
 keep_last_n: 5
-rendering_path: "./rendering"
 _recursive_: False

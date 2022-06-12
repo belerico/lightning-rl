@@ -2,5 +2,5 @@ _target_: lightning_rl.trainer.trainer.Trainer
 agent_cfg: ${agent}
 model_cfg: ${model}
 optimizer_cfg: ${optimizer}
-max_buffer_length: 1024
+max_buffer_length: -1
 _recursive_: False

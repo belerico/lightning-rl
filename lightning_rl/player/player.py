@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import gym
 import hydra
@@ -7,8 +7,7 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
-from lightning.storage.path import Path
-from lightning.storage.payload import Payload
+from lightning.storage import Drive, Path, Payload
 from lightning.structures import List as LightningList
 
 from lightning_rl.buffer.rollout import RolloutBuffer
@@ -26,12 +25,10 @@ class Player(L.LightningWork):
             algorithm to use. For this demo, we use the A2C algorithm (https://arxiv.org/abs/1602.01783).
         model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
             that outputs both the policy over actions and the value of the state.
-        model_state_dict_path (Path): shared path to the model state dict.
         gamma (np.ndarray): the discount factor. Default: 0.99.
         agent_id (int, optional): the agent id. Defaults to 0.
         save_rendering (bool, optional): whether to save the rendering. Defaults to False.
         keep_last_n (int, optional): number of last gifs to keep. Defaults to -1.
-        rendering_path (Union[Path, str], optional): path to the directory where to save the rendering. Defaults to None.
     """
 
     def __init__(
@@ -39,12 +36,10 @@ class Player(L.LightningWork):
         environment_id: str,
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
-        model_state_dict_path: Path,
         gamma: List[float] = [0.99],
         agent_id: int = 0,
         save_rendering: bool = False,
         keep_last_n: int = -1,
-        rendering_path: Optional[Union[Path, str]] = None,
         **work_kwargs
     ) -> None:
         super(Player, self).__init__(work_kwargs)
@@ -56,9 +51,6 @@ class Player(L.LightningWork):
         input_dim, action_dim = Player.get_env_info(environment_id)
         model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
         self._agent = hydra.utils.instantiate(agent_cfg, model=model, optimizer=None)
-        if isinstance(model_state_dict_path, str):
-            model_state_dict_path = Path(model_state_dict_path)
-        self.model_state_dict_path = model_state_dict_path
         if isinstance(gamma, list):
             gamma = np.array(gamma)
             if gamma.ndim <= 1:
@@ -70,11 +62,8 @@ class Player(L.LightningWork):
         self.episode_counter = 0
         self.save_rendering = save_rendering
         self._keep_last_n = keep_last_n
-        if rendering_path is not None:
-            if isinstance(rendering_path, str):
-                os.makedirs(rendering_path, exist_ok=True)
-                rendering_path = Path(rendering_path)
-        self.rendering_path = rendering_path
+        self.rendering_path: Drive = Drive("lit://renderings")
+        os.makedirs(str(self.rendering_path), exist_ok=True)
         self.test_metrics = {}
 
     def get_buffer(self) -> Optional[Payload]:
@@ -146,7 +135,10 @@ class Player(L.LightningWork):
         self.test_metrics["Test/sum_rew"] = total_reward
         if self.save_rendering:
             save_episode_as_gif(
-                frames, path=self.rendering_path, episode_counter=episode_counter, keep_last_n=self._keep_last_n
+                frames,
+                path=str(self.rendering_path),
+                episode_counter=episode_counter,
+                keep_last_n=self._keep_last_n,
             )
 
     @staticmethod
@@ -161,10 +153,9 @@ class Player(L.LightningWork):
             action_dim = environment.action_space.shape[0]
         return observation_size, action_dim
 
-    def run(self, signal: int, test: Optional[bool] = False):
-        if self.model_state_dict_path.exists():
-            self.model_state_dict_path.get(overwrite=True)
-            self._agent.model.load_state_dict(torch.load(self.model_state_dict_path))
+    def run(self, signal: int, model_state_dict_path: Path, test: Optional[bool] = False):
+        model_state_dict_path.get(overwrite=True)
+        self._agent.model.load_state_dict(torch.load(model_state_dict_path))
 
         if test:
             logger.info("Tester-{}: testing episode {}".format(self.agent_id, self.episode_counter))
@@ -179,7 +170,7 @@ class Player(L.LightningWork):
 
 
 class PlayersFlow(L.LightningFlow):
-    def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig, model_state_dict_path: Path):
+    def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig):
         super().__init__()
         self.n_players = n_players
         self.episode_counter = 0
@@ -188,7 +179,6 @@ class PlayersFlow(L.LightningFlow):
                 hydra.utils.instantiate(
                     player_cfg,
                     agent_id=i,
-                    model_state_dict_path=model_state_dict_path,
                     run_once=True,
                     parallel=True,
                 )
@@ -202,9 +192,9 @@ class PlayersFlow(L.LightningFlow):
     def buffers(self) -> List[Payload]:
         return [player.get_buffer() for player in self.players]
 
-    def run(self, signal: int) -> None:
+    def run(self, signal: int, model_state_dict_path: Path) -> None:
         for player in self.players:
-            player.run(signal)
+            player.run(signal, model_state_dict_path)
 
     def stop(self):
         for player in self.players:

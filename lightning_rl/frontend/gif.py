@@ -3,7 +3,7 @@ from typing import Optional
 
 import lightning as L
 from lightning.frontend.stream_lit import StreamlitFrontend
-from lightning.storage.path import Path
+from lightning.storage import Drive
 from lightning.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
@@ -11,15 +11,14 @@ from lightning_rl import ROOT_DIR
 
 def render_gif(state: Optional[AppState] = None) -> None:
     import streamlit as st
-    from streamlit_autorefresh import st_autorefresh
 
-    st_autorefresh(5000)
+    rendering_path = str(state.rendering_path)
     _left, mid, _right = st.columns([0.2, 5, 0.2])
     with mid:
-        if state is not None and state.rendering_path is not None and os.path.exists(state.rendering_path):
-            gifs = sorted(os.listdir(state.rendering_path), key=lambda x: x.split("_")[1], reverse=True)
-            if len(gifs) > 0 and os.path.exists(os.path.join(state.rendering_path, gifs[0])):
-                mid.image(os.path.join(state.rendering_path, gifs[0]), width=600, use_column_width=True)
+        if state is not None and rendering_path is not None and os.path.exists(rendering_path):
+            gifs = sorted(os.listdir(rendering_path), key=lambda x: x.split("_")[1], reverse=True)
+            if len(gifs) > 0 and os.path.exists(os.path.join(rendering_path, gifs[0])):
+                mid.image(os.path.join(rendering_path, gifs[0]), width=600, use_column_width=True)
             else:
                 mid.image(os.path.join(ROOT_DIR, "..", "images", "just_wait.gif"), width=600, use_column_width=True)
         else:
@@ -33,12 +32,12 @@ class GIFRender(L.LightningFlow):
         rendering_path (Path): Path to the directory where the GIFs are stored.
     """
 
-    def __init__(self, rendering_path: Optional[Path] = None):
+    def __init__(self, rendering_path: Optional[Drive] = None):
         super().__init__()
         self.rendering_path = rendering_path
 
     def run(self) -> None:
-        if self.rendering_path is not None and self.rendering_path.exists_remote():
+        if self.rendering_path is not None:
             self.rendering_path.get(overwrite=True)
 
     def configure_layout(self):

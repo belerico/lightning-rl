@@ -6,7 +6,6 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
-from lightning.storage.path import Path
 from lightning.storage.payload import Payload
 
 from lightning_rl.buffer.rollout import RolloutBuffer
@@ -58,8 +57,8 @@ class Trainer(L.LightningWork):
         optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
         self.episode_counter = 0
-        os.makedirs(os.path.dirname(model_state_dict_path), exist_ok=True)
-        self.model_state_dict_path = Path(model_state_dict_path)
+        self.model_state_dict_path = "lit://" + model_state_dict_path
+        os.makedirs(os.path.dirname(self.model_state_dict_path), exist_ok=True)
         self.max_buffer_length = max_buffer_length
         self.metrics = None
         self._episodes_delta = 0
