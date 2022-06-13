@@ -1,33 +1,52 @@
+import subprocess
 from typing import Any, Dict, Optional
 
 import lightning as L
-import tensorboard
-from lightning.storage.path import Path
+from lightning.storage import Drive
 from pytorch_lightning.loggers import TensorBoardLogger
-
-from lightning_rl.utils.utils import find_free_port, is_port_used
 
 
 class TensorboardWork(L.LightningWork):
     """Tensorboard logger as a LightningWork
 
     Args:
-        log_dir (str): where to save logs.
+        local_log_dir (str): where to save logs.
         host (str): host to run tensorboard.
         port (str): port to run tensorboard.
         **work_kwargs: additional arguments to pass to LightningWork.
     """
 
-    def __init__(self, log_dir: str, port: str = "6006", **work_kwargs):
+    def __init__(self, local_log_dir: str = "logs", port: str = "6006", **work_kwargs):
         super().__init__(**work_kwargs)
-        self.log_dir = Path(log_dir)
-        self._tb = tensorboard.program.TensorBoard()
-        if is_port_used(int(port), host=self.host):
-            port = str(find_free_port(host=self.host))
-        self._tb.configure(argv=[None, "--logdir", self.log_dir.name, "--host", self.host, "--port", port])
-        self.url = self._tb.launch()
-        self._logger = TensorBoardLogger(save_dir=self.log_dir.name, name="lightning-rl")
+        self.local_log_dir = local_log_dir
+        self._logger = TensorBoardLogger(self.local_log_dir)
+        self._tensorboard_started = False
+        self._local_log_dir_added = False
 
-    def run(self, episode_counter: int, metrics: Optional[Dict[str, Any]] = None):
+    @property
+    def tensorboard_url(self) -> str:
+        return self.url
+
+    @property
+    def tensorboard_log_dir(self) -> str:
+        return self._logger.log_dir
+
+    def run(self, episode_counter: int, metrics: Optional[Dict[str, Any]] = None, drive: Optional[Drive] = None):
+        if not self._tensorboard_started:
+            subprocess.Popen(
+                [
+                    "tensorboard",
+                    "--logdir",
+                    self.local_log_dir,
+                    "--host",
+                    self.host,
+                    "--port",
+                    str(self.port),
+                ]
+            )
+            self._tensorboard_started = True
         if metrics is not None:
             self._logger.log_metrics(metrics, episode_counter)
+            if not self._local_log_dir_added and drive is not None:
+                drive.put(self.local_log_dir)
+                self._local_log_dir_added = True
