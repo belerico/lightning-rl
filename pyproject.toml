@@ -6,17 +6,17 @@ authors = ["Federico Belotti"]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-torch = ">=1.10.2"
 numpy = ">=1.21"
 pytorch-lightning = ">=1.5.10"
 matplotlib = "3.5.1"
 Box2D = "2.3.10"
 gym = "^0.21.0"
 pyglet = "1.5.21"
-hydra-core = "1.1.1"
-tensorboard = "^2.8.0"
+hydra-core = ">=1.1.1"
+tensorboard = ">=2.8.0"
 streamlit = "^1.9.2"
 streamlit-autorefresh = "^0.0.1"
+torch = ">=1.10.2"
 
 [tool.poetry.dev-dependencies]
 black = {version = ">=22.1.0", allow-prereleases = true}

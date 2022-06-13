@@ -21,7 +21,7 @@ def get_logger(
     return logger
 
 
-def logo_and_title(logo_path: str, obj = None):
+def logo_and_title(logo_path: str, obj=None):
     if obj is None:
         obj = st
     obj.markdown(

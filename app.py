@@ -58,9 +58,10 @@ class RLTrainFlow(L.LightningFlow):
 
     def run(self):
         if not self.trainer.has_started or self.trainer.has_succeeded:
-            if self.players[0].episode_counter == 0:
+            if self.players[0].episode_counter == 0 and not self.trainer.first_time_model_save:
                 self.trainer.run(self.players[0].episode_counter)
-            self.players.run(self.trainer.episode_counter, self.trainer.model_state_dict_path)
+            else:
+                self.players.run(self.trainer.episode_counter, self.trainer.model_state_dict_path)
         if all(player.has_succeeded for player in self.players.players):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
             if self.trainer.has_succeeded:
@@ -114,11 +115,14 @@ class RLDemoFlow(L.LightningFlow):
                         self.train_flow.logger.tensorboard_log_dir, self.train_flow.tester.local_rendering_path
                     )
                     self.gif_renderer.rendering_path = os.path.normpath(rendering_path)
+                self.edit_conf.max_episodes = self.train_flow.max_episodes
                 self.train_flow_initialized = True
             else:
                 self.train_flow.run()
+                self.edit_conf.run(self.train_flow.trainer.episode_counter)
                 self.edit_conf.train_ended = self.train_flow.train_ended
         if self.train_flow_initialized and self.train_flow.train_ended:
+            self.edit_conf.train_ended = True
             self._exit()
 
     def configure_layout(self):

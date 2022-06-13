@@ -96,10 +96,11 @@ def render(state: Optional[AppState] = None):
             state.hydra_overrides = hydra_overrides
             state.train = train
     else:
-        # st.image(os.path.join(ROOT_DIR, "..", "images", "time.jpg"))
-        with st.spinner("The agent is training..."):
-            while not state.train_ended:
-                time.sleep(0.1)
+        st.write("Training the agent...")
+        pbar = st.progress(0)
+        for i in range(100):
+            time.sleep(0.1)
+            pbar.progress(state.current_episode / state.max_episodes)
 
 
 class EditConfUI(L.LightningFlow):
@@ -109,6 +110,11 @@ class EditConfUI(L.LightningFlow):
         self.train_ended = False
         self.hydra_overrides = None
         self.tmp_hydra_dir = tempfile.mkdtemp()
+        self.max_episodes = 0  # To be set after hydra conf initialization
+        self.current_episode = 0
+
+    def run(self, current_episode: int):
+        self.current_episode = current_episode
 
     def configure_layout(self):
         return StreamlitFrontend(render_fn=render)

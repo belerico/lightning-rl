@@ -4,7 +4,7 @@ from typing import Optional
 import lightning as L
 import streamlit as st
 from lightning.frontend.stream_lit import StreamlitFrontend
-from lightning.storage import Drive, Path, Payload
+from lightning.storage import Drive
 from lightning.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR

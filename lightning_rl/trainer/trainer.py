@@ -61,6 +61,7 @@ class Trainer(L.LightningWork):
         os.makedirs(os.path.dirname(self.model_state_dict_path), exist_ok=True)
         self.max_buffer_length = max_buffer_length
         self.metrics = None
+        self.first_time_model_save = False
         self._episodes_delta = 0
 
     def run(self, signal: int, buffers: Optional[List[Payload]] = None):
@@ -105,3 +106,4 @@ class Trainer(L.LightningWork):
             self.episode_counter += 1
         elif signal == 0:
             torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
+            self.first_time_model_save = True
