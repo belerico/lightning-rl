@@ -1,17 +1,15 @@
-import base64
 import os
 import shutil
 import tempfile
+import time
 from typing import Dict, List, Optional
-from urllib.parse import quote, urljoin
 
 import lightning as L
-import streamlit as st
-from lightning.core.constants import APP_SERVER_HOST, APP_SERVER_PORT
 from lightning.frontend.stream_lit import StreamlitFrontend
 from lightning.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
+from lightning_rl.utils.utils import logo_and_title
 
 
 def get_config_files() -> Dict[str, List[str]]:
@@ -26,42 +24,12 @@ def get_config_files() -> Dict[str, List[str]]:
     return config_files
 
 
-def title(logo_path: str):
-    st.markdown(
-        """
-        <style>
-        .logo-text {
-            font-weight: 700;
-            font-size: 50px;
-            display:inline-block;
-            vertical-align:middle;
-        }
-        .logo-img {
-            height: 50px;
-            padding-right: 10px;
-            width: auto;
-            vertical-align:middle;
-        }
-        </style>
-    """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""
-        <div class="container">
-            <img class="logo-img" src="data:image/png;base64,{base64.b64encode(open(logo_path, "rb").read()).decode()}">
-            <div class="logo-text">Lightning RL Demo</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render(state: Optional[AppState] = None):
+    import streamlit as st
+
     st.set_page_config(layout="wide")
+    logo_and_title(os.path.join(ROOT_DIR, "..", "images", "logo.png"))
     if (state is not None and not state.train) or state is None:
-        title(os.path.join(ROOT_DIR, "..", "images", "logo.png"))
         st.write(
             "Edit your hydra configurations before training the agent. For more information see %s"
             % "https://hydra.cc/docs/intro/"
@@ -128,19 +96,17 @@ def render(state: Optional[AppState] = None):
             state.hydra_overrides = hydra_overrides
             state.train = train
     else:
-        title(os.path.join(ROOT_DIR, "..", "images", "logo.png"))
-        st.write("The agent is training...")
-        st.write(
-            "Please wait until it is done. For training information you can check out the **TB LOGS** tab or directly look at {}".format(
-                urljoin(f"{APP_SERVER_HOST}:{APP_SERVER_PORT}", "view/" + quote("TB logs"))
-            )
-        )
+        # st.image(os.path.join(ROOT_DIR, "..", "images", "time.jpg"))
+        with st.spinner("The agent is training..."):
+            while not state.train_ended:
+                time.sleep(0.1)
 
 
 class EditConfUI(L.LightningFlow):
     def __init__(self):
         super().__init__()
         self.train = False
+        self.train_ended = False
         self.hydra_overrides = None
         self.tmp_hydra_dir = tempfile.mkdtemp()
 

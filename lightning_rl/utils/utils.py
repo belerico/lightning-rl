@@ -1,6 +1,9 @@
+import base64
 import logging
 import socket
 from contextlib import closing
+
+import streamlit as st
 
 
 def get_logger(
@@ -16,6 +19,40 @@ def get_logger(
     logger.addHandler(handler)
     logger.setLevel(level)
     return logger
+
+
+def logo_and_title(logo_path: str, obj = None):
+    if obj is None:
+        obj = st
+    obj.markdown(
+        """
+        <style>
+        .logo-text {
+            font-weight: 700;
+            font-size: 50px;
+            display:inline-block;
+            vertical-align:middle;
+        }
+        .logo-img {
+            height: 50px;
+            padding-right: 10px;
+            width: auto;
+            vertical-align:middle;
+        }
+        </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    obj.markdown(
+        f"""
+        <div class="container">
+            <img class="logo-img" src="data:image/png;base64,{base64.b64encode(open(logo_path, "rb").read()).decode()}">
+            <div class="logo-text">Lightning RL Demo</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def find_free_port(host: str = "localhost") -> int:

@@ -2,27 +2,46 @@ import os
 from typing import Optional
 
 import lightning as L
+import streamlit as st
 from lightning.frontend.stream_lit import StreamlitFrontend
-from lightning.storage import Drive
+from lightning.storage import Drive, Path, Payload
 from lightning.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
 
 
-def render_gif(state: Optional[AppState] = None) -> None:
-    import streamlit as st
+def just_wait_gif():
+    _left, mid, _right = st.columns([0.25, 5, 0.25])
+    mid.image(os.path.join(ROOT_DIR, "..", "images", "just_wait.gif"), use_column_width=True)
 
-    rendering_path = str(state.rendering_path)
-    _left, mid, _right = st.columns([0.2, 5, 0.2])
-    with mid:
-        if state is not None and rendering_path is not None and os.path.exists(rendering_path):
-            gifs = sorted(os.listdir(rendering_path), key=lambda x: x.split("_")[1], reverse=True)
-            if len(gifs) > 0 and os.path.exists(os.path.join(rendering_path, gifs[0])):
-                mid.image(os.path.join(rendering_path, gifs[0]), width=600, use_column_width=True)
+
+def render_gif(state: Optional[AppState] = None) -> None:
+    if (
+        state is not None
+        and state.rendering_path is not None
+        and len(state.lightning_rl_drive.list(state.rendering_path)) > 0
+    ):
+        state.lightning_rl_drive.get(state.rendering_path, overwrite=True)
+        rendering_path = state.rendering_path
+        gifs = sorted(os.listdir(rendering_path), key=lambda x: int(x.split("_")[1].split(".")[0]), reverse=True)
+        if len(gifs) > 0 and os.path.exists(os.path.join(rendering_path, gifs[0])):
+            st.write(
+                "The GIF is generated running the agent with the greedy policy, i.e. one that takes the most probable action, given the observed state."
+            )
+            if state.show_gifs_grid:
+                for i in range(0, max(len(gifs) // 2 + len(gifs) % 2 == 0, 2)):
+                    cols = st.columns(2)
+                    for j in range(len(cols)):
+                        if i * 2 + j < len(gifs):
+                            cols[j].image(
+                                os.path.join(rendering_path, gifs[i * 2 + j]), width=300, use_column_width=True
+                            )
             else:
-                mid.image(os.path.join(ROOT_DIR, "..", "images", "just_wait.gif"), width=600, use_column_width=True)
+                st.image(os.path.join(rendering_path, gifs[0]), width=300, use_column_width=True)
         else:
-            mid.image(os.path.join(ROOT_DIR, "..", "images", "just_wait.gif"), width=600, use_column_width=True)
+            just_wait_gif()
+    else:
+        just_wait_gif()
 
 
 class GIFRender(L.LightningFlow):
@@ -32,13 +51,11 @@ class GIFRender(L.LightningFlow):
         rendering_path (Path): Path to the directory where the GIFs are stored.
     """
 
-    def __init__(self, rendering_path: Optional[Drive] = None):
+    def __init__(self, show_gifs_grid: bool = False):
         super().__init__()
-        self.rendering_path = rendering_path
-
-    def run(self) -> None:
-        if self.rendering_path is not None:
-            self.rendering_path.get(overwrite=True)
+        self.show_gifs_grid = show_gifs_grid
+        self.rendering_path = None
+        self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)
 
     def configure_layout(self):
         return StreamlitFrontend(render_fn=render_gif)

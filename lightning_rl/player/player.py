@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import List, Optional, Tuple
 
 import gym
@@ -28,6 +29,9 @@ class Player(L.LightningWork):
         gamma (np.ndarray): the discount factor. Default: 0.99.
         agent_id (int, optional): the agent id. Defaults to 0.
         save_rendering (bool, optional): whether to save the rendering. Defaults to False.
+        log_dir (str, optional): the log directory of the logger. If specified then the renderings will be saved inside that folder.
+            Defaults to None.
+        local_rendering_path (str, optional): the local rendering path. Defaults to "./rendering.
         keep_last_n (int, optional): number of last gifs to keep. Defaults to -1.
     """
 
@@ -39,6 +43,8 @@ class Player(L.LightningWork):
         gamma: List[float] = [0.99],
         agent_id: int = 0,
         save_rendering: bool = False,
+        log_dir: Optional[str] = None,
+        local_rendering_path: str = "./rendering",
         keep_last_n: int = -1,
         **work_kwargs
     ) -> None:
@@ -62,8 +68,9 @@ class Player(L.LightningWork):
         self.episode_counter = 0
         self.save_rendering = save_rendering
         self._keep_last_n = keep_last_n
-        self.rendering_path: Drive = Drive("lit://rendering")
-        os.makedirs(str(self.rendering_path), exist_ok=True)
+        self.log_dir = log_dir
+        self.local_rendering_path = local_rendering_path
+        os.makedirs(local_rendering_path, exist_ok=True)
         self.test_metrics = {}
 
     def get_buffer(self) -> Optional[Payload]:
@@ -108,7 +115,7 @@ class Player(L.LightningWork):
         return buffer
 
     @torch.no_grad()
-    def test_episode(self, episode_counter) -> None:
+    def test_episode(self, episode_counter, drive: Optional[Drive] = None) -> None:
         """Samples an episode for a single agent in training mode
         Returns:
             RolloutBuffer: Episode data in a RolloutBuffer
@@ -136,10 +143,19 @@ class Player(L.LightningWork):
         if self.save_rendering:
             save_episode_as_gif(
                 frames,
-                path=str(self.rendering_path),
+                path=self.local_rendering_path,
                 episode_counter=episode_counter,
                 keep_last_n=self._keep_last_n,
             )
+            if drive is not None:
+                if self.log_dir is None:
+                    drive_rendering_path = self.local_rendering_path
+                else:
+                    drive_rendering_path = os.path.join(self.log_dir, self.local_rendering_path)
+                drive_path = os.path.normpath(drive_rendering_path)
+                os.makedirs(drive_path, exist_ok=True)
+                shutil.copytree(self.local_rendering_path, drive_path, dirs_exist_ok=True)
+                drive.put(drive_rendering_path)
 
     @staticmethod
     def get_env_info(environment_id: str) -> Tuple[int, int]:
@@ -153,13 +169,15 @@ class Player(L.LightningWork):
             action_dim = environment.action_space.shape[0]
         return observation_size, action_dim
 
-    def run(self, signal: int, model_state_dict_path: Path, test: Optional[bool] = False):
+    def run(
+        self, signal: int, model_state_dict_path: Path, drive: Optional[Drive] = None, test: Optional[bool] = False
+    ):
         model_state_dict_path.get(overwrite=True)
         self._agent.model.load_state_dict(torch.load(model_state_dict_path))
 
         if test:
             logger.info("Tester-{}: testing episode {}".format(self.agent_id, self.episode_counter))
-            self.test_episode(signal)
+            self.test_episode(signal, drive)
             logger.info("Tester-{}: Sum of rewards: {:.4f}".format(self.agent_id, self.test_metrics["Test/sum_rew"]))
         else:
             logger.info("Player-{}: playing episode {}".format(self.agent_id, self.episode_counter))
