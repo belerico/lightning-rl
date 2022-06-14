@@ -51,8 +51,8 @@ class A2C(Agent):
             buffer_data = self.buffer[batch_idxes]
             observation = buffer_data["observations"]
             game_actions = buffer_data["actions"]
-            advantages = buffer_data["advantages"]
-            returns = buffer_data["returns"]
+            advantages = buffer_data["advantages"].float()
+            returns = buffer_data["returns"].float()
 
             log_probs, values = self.evaluate_action(observation, game_actions)
             total_policy_loss -= (log_probs * advantages).sum()
