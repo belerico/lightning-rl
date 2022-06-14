@@ -85,12 +85,7 @@ class RolloutBuffer:
         data = {}
         for field_name in RolloutBuffer.field_names():
             field = self.get_field(field_name)
-            if field_name == "observations":
-                observation = torch.from_numpy(field[item])
-                data["observations"] = observation
-                data["lstm_states"] = None
-            else:
-                data[field_name] = torch.from_numpy(field[item])
+            data[field_name] = torch.from_numpy(field[item])
         return data
 
     def append(self, another_buffer: "RolloutBuffer") -> None:
