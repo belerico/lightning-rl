@@ -172,8 +172,9 @@ class Player(L.LightningWork):
     def run(
         self, signal: int, model_state_dict_path: Path, drive: Optional[Drive] = None, test: Optional[bool] = False
     ):
-        model_state_dict_path.get(overwrite=True)
-        self._agent.model.load_state_dict(torch.load(model_state_dict_path))
+        if model_state_dict_path.exists_remote():
+            model_state_dict_path.get(overwrite=True)
+            self._agent.model.load_state_dict(torch.load(model_state_dict_path))
 
         if test:
             logger.info("Tester-{}: testing episode {}".format(self.agent_id, self.episode_counter))
