@@ -118,7 +118,7 @@ class RLDemoFlow(L.LightningFlow):
                         self.train_flow.logger.tensorboard_log_dir, self.train_flow.tester.local_rendering_path
                     )
                     self.gif_renderer.rendering_path = os.path.normpath(rendering_path)
-                self.edit_conf.max_episodes = self.train_flow.max_episodes
+                self.edit_conf.max_episodes = config.max_episodes
                 self.train_flow_initialized = True
             else:
                 self.train_flow.run()
@@ -126,7 +126,6 @@ class RLDemoFlow(L.LightningFlow):
                 self.edit_conf.train_ended = self.train_flow.train_ended
         if self.train_flow_initialized and self.train_flow.train_ended:
             self.edit_conf.train_ended = True
-            self._exit()
 
     def configure_layout(self):
         tabs = [{"name": "Configurations", "content": self.edit_conf}]

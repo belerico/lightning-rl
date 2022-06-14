@@ -8,7 +8,7 @@ from torchmetrics import MeanMetric
 from lightning_rl.agent.base import Agent
 
 
-class PPOAgent(Agent):
+class PPO(Agent):
     """Initialize the agent.
 
     Args:
@@ -22,7 +22,6 @@ class PPOAgent(Agent):
         shuffle (bool, optional): whether to shuffle the data. Default is True.
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
-        entropy_coeff (float, optional): coefficient for the entropy regularization. Default is None.
         agent_id (int, optional): The agent id.
     """
 
@@ -36,16 +35,14 @@ class PPOAgent(Agent):
         batch_size: int = 32,
         shuffle: bool = True,
         clip_gradients: Optional[float] = 0.0,
-        entropy_coeff: Optional[float] = None,
         agent_id: Optional[int] = None,
     ):
-        super(PPOAgent, self).__init__(
+        super(PPO, self).__init__(
             model=model,
             optimizer=optimizer,
             scheduler=scheduler,
             batch_size=batch_size,
             clip_gradients=clip_gradients,
-            entropy_coeff=entropy_coeff,
             agent_id=agent_id,
         )
         self.clip_coeff = clip_coeff
@@ -56,12 +53,12 @@ class PPOAgent(Agent):
         self.total_value_loss = MeanMetric()
         self.total_grads_norm = MeanMetric()
 
-    def compute_loss(self) -> None:
+    def train_step(self) -> None:
         if self.shuffle:
             sampler = RandomSampler(self.buffer)
         else:
             sampler = SequentialSampler(self.buffer)
-        slices, _ = self.get_slices_and_indexes(len(sampler))
+        slices, _ = self.get_batches(len(sampler))
         for epoch in range(self.epochs):
             idxes = list(iter(sampler))
             for batch_num in range(len(slices) - 1):
@@ -74,28 +71,21 @@ class PPOAgent(Agent):
                 returns = buffer_data["returns"].float()
                 old_log_probs = game_log_probs.sum(dim=1, keepdim=True)
 
-                log_probs, entropy, values = self.evaluate_action(observations, game_actions)
+                log_probs, values = self.evaluate_action(observations, game_actions)
 
-                # PPO clipping
                 ratio = torch.exp(log_probs - old_log_probs)
-
-                # clipped surrogate loss
                 policy_loss_1 = advantages * ratio
                 policy_loss_2 = advantages * torch.clamp(ratio, 1 - self.clip_coeff, 1 + self.clip_coeff)
                 policy_loss = -torch.min(policy_loss_1, policy_loss_2).mean()
                 self.total_policy_loss.update(policy_loss)
 
-                # Value loss
                 value_loss = F.mse_loss(values, returns)
                 self.total_value_loss.update(value_loss)
 
                 loss = policy_loss + value_loss
                 self.total_loss.update(loss)
 
-                # Backward pass
                 self.backward(loss)
-
-                # Clip gradients + optimizer step
                 grad_norm = self.optimize_step()
                 self.total_grads_norm.update(grad_norm)
 

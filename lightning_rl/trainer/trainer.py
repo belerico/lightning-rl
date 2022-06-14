@@ -83,9 +83,11 @@ class Trainer(L.LightningWork):
                         self.agent_id, self.episode_counter, len(self._buffer)
                     )
                 )
+                if self.max_buffer_length > 0:
+                    self._buffer.shrink(self.max_buffer_length)
                 sum_rewards = np.sum(self._buffer.rewards).item() / self._num_players / self._episodes_delta
                 self._agent.buffer = self._buffer
-                metrics = self._agent.train_step()
+                metrics = self._agent.train()
                 torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
                 metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = (
                     len(self._buffer) / self._num_players / self._episodes_delta

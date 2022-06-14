@@ -16,7 +16,6 @@ class Agent:
         batch_size (int, optional): size for the minibatch. Default is 32.
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
-        entropy_coeff (float, optional): coefficient for the entropy regularization. Default is None.
         agent_id (int, optional): The agent id.
     """
 
@@ -27,7 +26,6 @@ class Agent:
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         batch_size: int = 32,
         clip_gradients: Optional[float] = 0.0,
-        entropy_coeff: Optional[float] = None,
         agent_id: Optional[int] = None,
     ):
         super(Agent, self).__init__()
@@ -36,10 +34,7 @@ class Agent:
         self.scheduler = scheduler
         self.distribution = torch.distributions.Categorical
         self.batch_size = batch_size
-        self.entropy_coeff = entropy_coeff
         self.clip_gradients = clip_gradients
-        self.episode_counter = 0
-        self.returns: Optional[torch.Tensor] = None
         self._buffer = None
         self.agent_id = agent_id
         self.metrics = {}
@@ -94,7 +89,7 @@ class Agent:
 
     def evaluate_action(
         self, observation: torch.Tensor, actions: torch.Tensor
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Select an action for the given observation and optional state.
 
         Args:
@@ -102,16 +97,12 @@ class Agent:
             actions (torch.Tensor): Actions to be evaluated.
 
         Returns:
-            Tuple[torch.Tensor, Optional[torch.Tensor] torch.Tensor]: Returns a tuple containing the actions log-probabilities,
-            optionally it returns the entropy of the policy and the critic values.
+            Tuple[torch.Tensor, Optional[torch.Tensor] torch.Tensor]: Returns a tuple containing the actions log-probabilities and the critic values.
         """
         action_probs, value = self.model(observation)
         dist = self.distribution(probs=action_probs)
         log_probs = dist.log_prob(actions.squeeze(1)).unsqueeze(1)
-        entropy = None
-        if self.entropy_coeff is not None and self.entropy_coeff > 0:
-            entropy = dist.entropy()
-        return log_probs, entropy, value
+        return log_probs, value
 
     @torch.no_grad()
     def optimize_step(self) -> Optional[torch.Tensor]:
@@ -127,21 +118,14 @@ class Agent:
             self.optimizer.step()
         if self.scheduler is not None:
             self.scheduler.step()
-        return grad_norm
-
-    def before_backward(self):
-        if self.optimizer is not None:
-            self.optimizer.zero_grad(set_to_none=True)
-
-    def after_backward(self):
-        pass
+        return grad_norm        
 
     def backward(self, loss: torch.Tensor):
-        self.before_backward()
+        if self.optimizer is not None:
+            self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
-        self.after_backward()
 
-    def get_slices_and_indexes(self, num_samples: int) -> Tuple[List[int], List[int]]:
+    def get_batches(self, num_samples: int) -> Tuple[List[int], List[int]]:
         slices = list(range(0, num_samples + 1, self.batch_size))
         if num_samples % self.batch_size != 0:
             slices += [num_samples]
@@ -150,10 +134,10 @@ class Agent:
         idxes = list(range(num_samples))
         return slices, idxes
 
-    def compute_loss(self) -> None:
+    def train_step(self) -> None:
         raise NotImplementedError
 
-    def train_step(self) -> Dict[str, Any]:
+    def train(self) -> Dict[str, Any]:
         """Run the forward and backward passes.
 
         Returns:
@@ -164,5 +148,5 @@ class Agent:
                 - Gradients/Agent-{agent_id}/grad_norm: the norm of the gradients.
         """
         self.metrics = {}
-        self.compute_loss()
+        self.train_step()
         return self.metrics
