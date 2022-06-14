@@ -38,8 +38,6 @@ class BufferWork(L.LightningWork):
 
 @dataclass
 class RolloutBuffer:
-    # PPO and A2C like algorithms
-    # the data order follows the same order below
     observations: np.ndarray
     dones: np.ndarray
     rewards: np.ndarray
@@ -87,12 +85,7 @@ class RolloutBuffer:
         data = {}
         for field_name in RolloutBuffer.field_names():
             field = self.get_field(field_name)
-            if field_name == "observations":
-                observation = torch.from_numpy(field[item])
-                data["observations"] = observation
-                data["lstm_states"] = None
-            else:
-                data[field_name] = torch.from_numpy(field[item])
+            data[field_name] = torch.from_numpy(field[item])
         return data
 
     def append(self, another_buffer: "RolloutBuffer") -> None:
@@ -150,13 +143,3 @@ class RolloutBuffer:
 
         self.returns = returns
         self.advantages = returns - self.values
-
-    def add(self, data: Dict[str, np.ndarray]) -> None:
-        """Adds data to the Buffer"""
-        for field_name in RolloutBuffer.field_names():
-            field = self.get_field(field_name)
-            if not isinstance(data[field_name], np.ndarray) and isinstance(data[field_name], torch.Tensor):
-                data[field_name] = data[field_name].numpy()
-            else:
-                raise ValueError(f"{field_name} is neither a numpy array nor a torch tensor")
-            setattr(self, field_name, np.concatenate((field, data[field_name])))

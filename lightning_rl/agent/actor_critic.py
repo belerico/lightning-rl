@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from lightning_rl.agent.base import Agent
 
 
-class A2CAgent(Agent):
+class A2C(Agent):
     """Initialize the agent.
 
     Args:
@@ -17,7 +17,6 @@ class A2CAgent(Agent):
         batch_size (int, optional): size for the minibatch. Default is 32.
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
-        entropy_coeff (float, optional): coefficient for the entropy regularization. Default is None.
         agent_id (int, optional): The agent id.
     """
 
@@ -28,43 +27,38 @@ class A2CAgent(Agent):
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         batch_size: int = 32,
         clip_gradients: Optional[float] = 0.0,
-        entropy_coeff: Optional[float] = None,
         agent_id: Optional[int] = None,
     ):
-        super(A2CAgent, self).__init__(
+        super(A2C, self).__init__(
             model=model,
             optimizer=optimizer,
             scheduler=scheduler,
             batch_size=batch_size,
             clip_gradients=clip_gradients,
-            entropy_coeff=entropy_coeff,
             agent_id=agent_id,
         )
 
-    def compute_loss(self) -> None:
+    def train_step(self) -> None:
         """Compute the A2C loss"""
 
         num_samples = len(self.buffer)
-        slices, idxes = self.get_slices_and_indexes(num_samples)
+        slices, idxes = self.get_batches(num_samples)
 
         total_value_loss = 0
         total_policy_loss = 0
-        total_entropy_loss = 0
         for batch_num in range(len(slices) - 1):
             batch_idxes = idxes[slices[batch_num] : slices[batch_num + 1]]
             buffer_data = self.buffer[batch_idxes]
             observation = buffer_data["observations"]
             game_actions = buffer_data["actions"]
-            advantages = buffer_data["advantages"]
-            returns = buffer_data["returns"]
+            advantages = buffer_data["advantages"].float()
+            returns = buffer_data["returns"].float()
 
-            log_probs, entropy, values = self.evaluate_action(observation, game_actions)
+            log_probs, values = self.evaluate_action(observation, game_actions)
             total_policy_loss -= (log_probs * advantages).sum()
             total_value_loss += F.smooth_l1_loss(values, returns, reduction="sum")
-            if entropy is not None:
-                total_entropy_loss -= self.entropy_coeff * entropy.sum()
 
-        loss = (total_policy_loss + total_value_loss + total_entropy_loss) / num_samples
+        loss = (total_policy_loss + total_value_loss) / num_samples
 
         self.metrics["Loss/Agent-{}/loss".format(self.agent_id)] = loss.item()
         self.metrics["Loss/Agent-{}/value_loss".format(self.agent_id)] = total_value_loss.item()

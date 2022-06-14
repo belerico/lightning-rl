@@ -95,12 +95,15 @@ def render(state: Optional[AppState] = None):
                         shutil.copy(file, dirname)
             state.hydra_overrides = hydra_overrides
             state.train = train
-    else:
-        st.write("Training the agent...")
-        pbar = st.progress(0)
-        for i in range(100):
-            time.sleep(0.1)
-            pbar.progress(state.current_episode / state.max_episodes)
+    elif state is not None and state.train:
+        if not state.train_ended:
+            st.write("Training the agent...")
+            pbar = st.progress(0)
+            while state.current_episode < state.max_episodes:
+                time.sleep(0.1)
+                pbar.progress(state.current_episode / state.max_episodes)
+        else:
+            st.success("Your training has completed. Well done!")
 
 
 class EditConfUI(L.LightningFlow):

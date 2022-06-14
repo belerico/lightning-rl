@@ -51,11 +51,11 @@ class GIFRender(L.LightningFlow):
         rendering_path (Path): Path to the directory where the GIFs are stored.
     """
 
-    def __init__(self, show_gifs_grid: bool = False):
+    def __init__(self, lightning_rl_drive: Drive, show_gifs_grid: bool = False):
         super().__init__()
         self.show_gifs_grid = show_gifs_grid
         self.rendering_path = None
-        self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)
+        self.lightning_rl_drive = lightning_rl_drive
 
     def configure_layout(self):
         return StreamlitFrontend(render_fn=render_gif)
