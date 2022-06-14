@@ -1,3 +1,5 @@
+import os
+import shutil
 import subprocess
 from typing import Any, Dict, Optional
 
@@ -22,6 +24,7 @@ class TensorboardWork(L.LightningWork):
         self._logger = TensorBoardLogger(self.local_log_dir)
         self._tensorboard_started = False
         self._local_log_dir_added = False
+        self._hydra_folder_moved = False
 
     @property
     def tensorboard_url(self) -> str:
@@ -45,6 +48,10 @@ class TensorboardWork(L.LightningWork):
                 ]
             )
             self._tensorboard_started = True
+        if not self._hydra_folder_moved and drive is not None:
+            drive.get(".hydra", overwrite=True)
+            shutil.move(".hydra", os.path.join(self.tensorboard_log_dir, ".hydra"))
+            self._hydra_folder_moved = True
         if metrics is not None:
             self._logger.log_metrics(metrics, episode_counter)
             if not self._local_log_dir_added and drive is not None:

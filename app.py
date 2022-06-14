@@ -89,7 +89,7 @@ class RLDemoFlow(L.LightningFlow):
     def __init__(self):
         super().__init__()
         self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)
-        self.edit_conf = EditConfUI()
+        self.edit_conf = EditConfUI(self.lightning_rl_drive)
         self.gif_renderer = GIFRender(self.lightning_rl_drive)
         self.train_flow = None
         self.train_flow_initialized = False
@@ -98,7 +98,7 @@ class RLDemoFlow(L.LightningFlow):
         if self.edit_conf.train:
             if not self.train_flow_initialized:
                 logger.info("Initializing hydra")
-                with initialize_config_dir(os.path.join(self.edit_conf.tmp_hydra_dir, ".hydra")):
+                with initialize_config_dir(os.path.abspath(os.path.join(self.edit_conf.tmp_hydra_dir, ".hydra"))):
                     config = compose(
                         "config.yaml", overrides=[k + "=" + v for k, v in self.edit_conf.hydra_overrides.items()]
                     )

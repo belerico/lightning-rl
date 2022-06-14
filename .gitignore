@@ -136,3 +136,4 @@ buffer_*
 rendering/
 images/arch.xml
 .vscode
+.hydra

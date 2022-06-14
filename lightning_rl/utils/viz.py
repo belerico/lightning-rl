@@ -44,7 +44,6 @@ def save_episode_as_gif(
     bars = []
     if action_probs is not None:
         for j in range(len(action_probs[0])):
-
             bar_labels = [f"{idx}" for idx in range(len(action_probs[0][j]))]
             bar = axes[0][j + 1].bar(bar_labels, action_probs[0][j].tolist())
             axes[0][j + 1].set_ylim([0, 1.0])

@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 
 import lightning as L
 from lightning.frontend.stream_lit import StreamlitFrontend
+from lightning.storage import Drive
 from lightning.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
@@ -93,6 +94,7 @@ def render(state: Optional[AppState] = None):
                             f.flush()
                     else:
                         shutil.copy(file, dirname)
+            state.lightning_rl_drive.put(os.path.join(state.tmp_hydra_dir, ".hydra"))
             state.hydra_overrides = hydra_overrides
             state.train = train
     elif state is not None and state.train:
@@ -107,12 +109,13 @@ def render(state: Optional[AppState] = None):
 
 
 class EditConfUI(L.LightningFlow):
-    def __init__(self):
+    def __init__(self, lightning_rl_drive: Drive):
         super().__init__()
+        self.lightning_rl_drive = lightning_rl_drive
         self.train = False
         self.train_ended = False
         self.hydra_overrides = None
-        self.tmp_hydra_dir = tempfile.mkdtemp()
+        self.tmp_hydra_dir = "."
         self.max_episodes = 0  # To be set after hydra conf initialization
         self.current_episode = 0
 
