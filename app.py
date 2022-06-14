@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 class RLTrainFlow(L.LightningFlow):
     def __init__(
         self,
+        lightning_rl_drive: Drive,
         player_cfg: omegaconf.DictConfig,
         tester_cfg: omegaconf.DictConfig,
         trainer_cfg: omegaconf.DictConfig,
@@ -30,7 +31,7 @@ class RLTrainFlow(L.LightningFlow):
         **kwargs
     ):
         super().__init__(**kwargs)
-        self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)
+        self.lightning_rl_drive = lightning_rl_drive
         self.num_players = num_players
         self.max_episodes = max_episodes
         self.test_every_n_episodes = test_every_n_episodes
@@ -87,8 +88,9 @@ class RLTrainFlow(L.LightningFlow):
 class RLDemoFlow(L.LightningFlow):
     def __init__(self):
         super().__init__()
+        self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)
         self.edit_conf = EditConfUI()
-        self.gif_renderer = GIFRender()
+        self.gif_renderer = GIFRender(self.lightning_rl_drive)
         self.train_flow = None
         self.train_flow_initialized = False
 
@@ -102,6 +104,7 @@ class RLDemoFlow(L.LightningFlow):
                     )
                 logger.info("Hydra configs composition finished")
                 self.train_flow = RLTrainFlow(
+                    self.lightning_rl_drive,
                     config.player,
                     config.tester,
                     config.trainer,
