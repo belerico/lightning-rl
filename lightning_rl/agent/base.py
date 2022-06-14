@@ -87,9 +87,7 @@ class Agent:
         log_probs = dist.log_prob(selected_actions)
         return selected_actions, log_probs, value
 
-    def evaluate_action(
-        self, observation: torch.Tensor, actions: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def evaluate_action(self, observation: torch.Tensor, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Select an action for the given observation and optional state.
 
         Args:
@@ -118,7 +116,7 @@ class Agent:
             self.optimizer.step()
         if self.scheduler is not None:
             self.scheduler.step()
-        return grad_norm        
+        return grad_norm
 
     def backward(self, loss: torch.Tensor):
         if self.optimizer is not None:
