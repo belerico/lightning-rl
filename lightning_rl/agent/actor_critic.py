@@ -56,7 +56,7 @@ class A2C(Agent):
 
             log_probs, values = self.evaluate_action(observation, game_actions)
             total_policy_loss -= (log_probs * advantages).sum()
-            total_value_loss += F.smooth_l1_loss(values, returns, reduction="sum")
+            total_value_loss += F.mse_loss(values, returns, reduction="sum")
 
         loss = (total_policy_loss + total_value_loss) / num_samples
 
