@@ -23,7 +23,7 @@ from . import logger
 @dataclass
 class CustomBuildConfig(BuildConfig):
     def build_commands(self):
-        return ["sudo apt-get install xvfb"]
+        return ["sudo apt-get -y install xvfb"]
 
 
 class Player(la.LightningWork):
