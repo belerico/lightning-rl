@@ -1,13 +1,12 @@
 import os
 import shutil
-import tempfile
 import time
 from typing import Dict, List, Optional
 
-import lightning as L
-from lightning.frontend.stream_lit import StreamlitFrontend
-from lightning.storage import Drive
-from lightning.utilities.state import AppState
+import lightning.app as la
+from lightning.app.frontend.stream_lit import StreamlitFrontend
+from lightning.app.storage import Drive
+from lightning.app.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
 from lightning_rl.utils.utils import logo_and_title
@@ -108,7 +107,7 @@ def render(state: Optional[AppState] = None):
             st.success("Your training has completed. Well done!")
 
 
-class EditConfUI(L.LightningFlow):
+class EditConfUI(la.LightningFlow):
     def __init__(self, lightning_rl_drive: Drive):
         super().__init__()
         self.lightning_rl_drive = lightning_rl_drive

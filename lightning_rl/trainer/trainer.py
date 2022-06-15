@@ -2,18 +2,18 @@ import os
 from typing import List, Optional
 
 import hydra
-import lightning as L
+import lightning.app as la
 import numpy as np
 import omegaconf
 import torch
-from lightning.storage.payload import Payload
+from lightning.app.storage.payload import Payload
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 
 from . import logger
 
 
-class Trainer(L.LightningWork):
+class Trainer(la.LightningWork):
     """Worker that train the agent given the observations received by the Players.
 
     Args:
@@ -25,7 +25,7 @@ class Trainer(L.LightningWork):
         model_cfg (omegaconf.DictConfig): the model configuration. For this demo we have a simple linear model
             that outputs both the policy over actions and the value of the state.
         optimizer_cfg (omegaconf.DictConfig): the optimizer configuration. For this demo we use the Adam optimizer by default.
-        model_state_dict_path (str, optional): the path to the model state dict. Default is "./synced_model/model_state_dict.pth".
+        checkpoint_path (str, optional): the path to the model state dict. Default is "./checkpoints/checkpoint.pth".
         max_buffer_length (int, optional): the maximum length of the buffer. If the `max_buffer_length` is > 0, then the trainer will
             start training if its buffer has at least `max_buffer_size` elements (This is useful if one runs the PPO agent).
             If `max_buffer_length` is <= 0, then no concatenation will be done and the trainer will train as soon as every player
@@ -42,7 +42,7 @@ class Trainer(L.LightningWork):
         agent_cfg: omegaconf.DictConfig,
         model_cfg: omegaconf.DictConfig,
         optimizer_cfg: omegaconf.DictConfig,
-        model_state_dict_path: str = "./synced_model/model_state_dict.pth",
+        checkpoint_path: str = "./checkpoints/checkpoint.pth",
         max_buffer_length: int = -1,
         agent_id: int = 0,
         **work_kwargs
@@ -57,18 +57,19 @@ class Trainer(L.LightningWork):
         optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
         self.episode_counter = 0
-        self.model_state_dict_path = None
-        self.local_model_state_dict_path = model_state_dict_path
-        self.max_buffer_length = max_buffer_length
+        self.checkpoint_path = None
+        self.local_checkpoint_path = checkpoint_path
+        self._checkpoint_path_name, self._checkpoint_path_ext = os.path.splitext(checkpoint_path)
+        self._max_buffer_length = max_buffer_length
         self.metrics = None
         self.first_time_model_save = False
         self._episodes_delta = 0
 
     def run(self, signal: int, buffers: Optional[List[Payload]] = None):
-        if self.model_state_dict_path is None:
-            self.model_state_dict_path = "lit://" + self.local_model_state_dict_path
-        if not os.path.exists(self.model_state_dict_path):
-            os.makedirs(os.path.dirname(self.model_state_dict_path), exist_ok=True)
+        if self.checkpoint_path is None:
+            self.checkpoint_path = "lit://" + self.local_checkpoint_path
+        if not os.path.exists(self.checkpoint_path):
+            os.makedirs(os.path.dirname(self.checkpoint_path), exist_ok=True)
         if signal > 0 and not any(buffer is None for buffer in buffers):
             self._episodes_delta += 1
             logger.info("Trainer-{}: received buffer from Players".format(self.agent_id))
@@ -80,19 +81,18 @@ class Trainer(L.LightningWork):
                 self._buffer.append(buffers[i].value)
             logger.info("Trainer-{}: buffer size: {}".format(self.agent_id, len(self._buffer)))
             if (
-                self._buffer is not None and len(self._buffer) >= self.max_buffer_length
-            ) or self.max_buffer_length <= 0:
+                self._buffer is not None and len(self._buffer) >= self._max_buffer_length
+            ) or self._max_buffer_length <= 0:
                 logger.info(
                     "Trainer-{}: training episode {}, buffer length: {}".format(
                         self.agent_id, self.episode_counter, len(self._buffer)
                     )
                 )
-                if self.max_buffer_length > 0:
-                    self._buffer.shrink(self.max_buffer_length)
+                if self._max_buffer_length > 0:
+                    self._buffer.shrink(self._max_buffer_length)
                 sum_rewards = np.sum(self._buffer.rewards).item() / self._num_players / self._episodes_delta
                 self._agent.buffer = self._buffer
                 metrics = self._agent.train()
-                torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
                 metrics["Game/Agent-{}/episode_length".format(self.agent_id)] = (
                     len(self._buffer) / self._num_players / self._episodes_delta
                 )
@@ -106,10 +106,12 @@ class Trainer(L.LightningWork):
                         sum_rewards,
                     )
                 )
+                model_state_dict = self._agent.model.state_dict()
+                torch.save(model_state_dict, self.checkpoint_path)
                 self._buffer = None
                 self.metrics = metrics
                 self._episodes_delta = 0
             self.episode_counter += 1
         elif signal == 0:
-            torch.save(self._agent.model.state_dict(), self.model_state_dict_path)
+            torch.save(self._agent.model.state_dict(), self.checkpoint_path)
             self.first_time_model_save = True

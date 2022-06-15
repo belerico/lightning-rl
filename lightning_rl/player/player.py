@@ -4,12 +4,14 @@ from typing import List, Optional, Tuple
 
 import gym
 import hydra
-import lightning as L
+import lightning.app as la
 import numpy as np
 import omegaconf
 import torch
-from lightning.storage import Drive, Path, Payload
-from lightning.structures import List as LightningList
+from lightning.app import BuildConfig
+from lightning.app.storage import Drive, Path, Payload
+from lightning.app.structures import List as LightningList
+from pyvirtualdisplay import Display
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 from lightning_rl.utils.viz import save_episode_as_gif
@@ -17,7 +19,12 @@ from lightning_rl.utils.viz import save_episode_as_gif
 from . import logger
 
 
-class Player(L.LightningWork):
+class CustomBuildConfig(BuildConfig):
+    def build_commands(self):
+        return ["sudo apt-get install xvfb"]
+
+
+class Player(la.LightningWork):
     """Worker that wraps a gym environment and plays in it.
 
     Args:
@@ -72,6 +79,7 @@ class Player(L.LightningWork):
         self.local_rendering_path = local_rendering_path
         os.makedirs(local_rendering_path, exist_ok=True)
         self.test_metrics = {}
+        self._cloud_build_config = CustomBuildConfig()
 
     def get_buffer(self) -> Optional[Payload]:
         return getattr(self, "buffer_{}".format(self.agent_id))
@@ -121,24 +129,25 @@ class Player(L.LightningWork):
             RolloutBuffer: Episode data in a RolloutBuffer
 
         """
-        observation = self._environment.reset()
-        game_done = False
-        step_counter = 0
-        frames = []
-        total_reward = 0
-        while not game_done:
-            observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
-            env_actions = self._agent.select_greedy_action(observation_tensor)
-            env_actions = env_actions.numpy().flatten().tolist()
-            env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
-            next_observation, reward, game_done, info = self._environment.step(env_actions)
-            total_reward += reward
-            observation = next_observation
-            if self.save_rendering:
-                frame = self._environment.render(mode="rgb_array")
-                frames.append(frame)
-            step_counter += 1
-        self._environment.close()
+        with Display() as disp:
+            observation = self._environment.reset()
+            game_done = False
+            step_counter = 0
+            frames = []
+            total_reward = 0
+            while not game_done:
+                observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
+                env_actions = self._agent.select_greedy_action(observation_tensor)
+                env_actions = env_actions.numpy().flatten().tolist()
+                env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
+                next_observation, reward, game_done, info = self._environment.step(env_actions)
+                total_reward += reward
+                observation = next_observation
+                if self.save_rendering:
+                    frame = self._environment.render(mode="rgb_array")
+                    frames.append(frame)
+                step_counter += 1
+            self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
         if self.save_rendering:
             save_episode_as_gif(
@@ -169,12 +178,10 @@ class Player(L.LightningWork):
             action_dim = environment.action_space.shape[0]
         return observation_size, action_dim
 
-    def run(
-        self, signal: int, model_state_dict_path: Path, drive: Optional[Drive] = None, test: Optional[bool] = False
-    ):
-        if model_state_dict_path.exists_remote():
-            model_state_dict_path.get(overwrite=True)
-            self._agent.model.load_state_dict(torch.load(model_state_dict_path))
+    def run(self, signal: int, checkpoint_path: Path, drive: Optional[Drive] = None, test: Optional[bool] = False):
+        if checkpoint_path.exists_remote():
+            checkpoint_path.get(overwrite=True)
+            self._agent.model.load_state_dict(torch.load(checkpoint_path))
 
         if test:
             logger.info("Tester-{}: testing episode {}".format(self.agent_id, self.episode_counter))
@@ -188,7 +195,7 @@ class Player(L.LightningWork):
         self.episode_counter += 1
 
 
-class PlayersFlow(L.LightningFlow):
+class PlayersFlow(la.LightningFlow):
     def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig):
         super().__init__()
         self.n_players = n_players
@@ -211,9 +218,9 @@ class PlayersFlow(L.LightningFlow):
     def buffers(self) -> List[Payload]:
         return [player.get_buffer() for player in self.players]
 
-    def run(self, signal: int, model_state_dict_path: Path) -> None:
+    def run(self, signal: int, checkpoint_path: Path) -> None:
         for player in self.players:
-            player.run(signal, model_state_dict_path)
+            player.run(signal, checkpoint_path)
 
     def stop(self):
         for player in self.players:
