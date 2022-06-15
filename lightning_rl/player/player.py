@@ -1,5 +1,6 @@
 import os
 import shutil
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import gym
@@ -19,6 +20,7 @@ from lightning_rl.utils.viz import save_episode_as_gif
 from . import logger
 
 
+@dataclass
 class CustomBuildConfig(BuildConfig):
     def build_commands(self):
         return ["sudo apt-get install xvfb"]
