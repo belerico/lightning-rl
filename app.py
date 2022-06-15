@@ -1,11 +1,10 @@
 import os
 
 import hydra
-import lightning as L
+import lightning.app as la
 import omegaconf
 from hydra import compose, initialize_config_dir
-from lightning.storage import Drive
-from pympler import asizeof
+from lightning.app.storage import Drive
 
 from lightning_rl.frontend.config import EditConfUI
 from lightning_rl.frontend.gif import GIFRender
@@ -17,7 +16,7 @@ from lightning_rl.utils.utils import get_logger
 logger = get_logger(__name__)
 
 
-class RLTrainFlow(L.LightningFlow):
+class RLTrainFlow(la.LightningFlow):
     def __init__(
         self,
         lightning_rl_drive: Drive,
@@ -46,33 +45,31 @@ class RLTrainFlow(L.LightningFlow):
             cache_calls=True,
             parallel=True,
         )
-        self.tester: Player = hydra.utils.instantiate(
-            tester_cfg,
-            agent_id=0,
-            cache_calls=True,
-            parallel=True,
-        )
+        self.tester: Player = hydra.utils.instantiate(tester_cfg, agent_id=0, cache_calls=True, parallel=True)
         self.players = PlayersFlow(self.num_players, player_cfg)
         self.logger = TensorboardWork(parallel=True, cache_calls=True)
         self.tester.log_dir = self.logger.tensorboard_log_dir
         self.train_ended = False
 
     def run(self):
-        if not self.trainer.has_started or self.trainer.has_succeeded:
-            if self.players[0].episode_counter == 0 and not self.trainer.first_time_model_save:
-                self.trainer.run(self.players[0].episode_counter)
-            else:
-                self.players.run(self.trainer.episode_counter, self.trainer.model_state_dict_path)
+        if not self.trainer.first_time_model_save:
+            self.trainer.run(0)
+        elif not self.trainer.has_started or self.trainer.has_succeeded:
+            self.players.run(self.trainer.episode_counter, self.trainer.checkpoint_path)
         if all(player.has_succeeded for player in self.players.players):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
             if self.trainer.has_succeeded:
                 if self.trainer.metrics is not None:
-                    self.trainer.metrics.update({"State/Size": asizeof.asizeof(self.state)})
                     self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
-                self.logger.run(self.trainer.episode_counter, self.trainer.metrics, self.lightning_rl_drive)
+                self.logger.run(
+                    self.trainer.episode_counter,
+                    self.trainer.metrics,
+                    self.lightning_rl_drive,
+                    self.trainer.checkpoint_path,
+                )
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(
-                self.trainer.episode_counter, self.trainer.model_state_dict_path, self.lightning_rl_drive, test=True
+                self.trainer.episode_counter, self.trainer.checkpoint_path, self.lightning_rl_drive, test=True
             )
             if self.tester.has_succeeded:
                 self.tester.test_metrics.update({"Game/Test episodes": self.tester.episode_counter})
@@ -85,11 +82,11 @@ class RLTrainFlow(L.LightningFlow):
             self.train_ended = True
 
 
-class RLDemoFlow(L.LightningFlow):
+class RLDemoFlow(la.LightningFlow):
     def __init__(self):
         super().__init__()
         self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)
-        self.edit_conf = EditConfUI()
+        self.edit_conf = EditConfUI(self.lightning_rl_drive)
         self.gif_renderer = GIFRender(self.lightning_rl_drive)
         self.train_flow = None
         self.train_flow_initialized = False
@@ -98,7 +95,7 @@ class RLDemoFlow(L.LightningFlow):
         if self.edit_conf.train:
             if not self.train_flow_initialized:
                 logger.info("Initializing hydra")
-                with initialize_config_dir(os.path.join(self.edit_conf.tmp_hydra_dir, ".hydra")):
+                with initialize_config_dir(os.path.abspath(os.path.join(self.edit_conf.tmp_hydra_dir, ".hydra"))):
                     config = compose(
                         "config.yaml", overrides=[k + "=" + v for k, v in self.edit_conf.hydra_overrides.items()]
                     )
@@ -128,10 +125,10 @@ class RLDemoFlow(L.LightningFlow):
             self.edit_conf.train_ended = True
 
     def configure_layout(self):
-        tabs = [{"name": "Configurations", "content": self.edit_conf}]
+        tabs = [{"name": "Configure your training", "content": self.edit_conf}]
         if self.train_flow_initialized:
-            tabs += [{"name": "TB Logs", "content": self.train_flow.logger.tensorboard_url}]
-            tabs += [{"name": "Test GIFs", "content": self.gif_renderer}]
+            tabs += [{"name": "Training logs", "content": self.train_flow.logger.tensorboard_url}]
+            tabs += [{"name": "Learned agent", "content": self.gif_renderer}]
             if self.train_flow.show_rl_info:
                 tabs += [
                     {"name": "RL: intro", "content": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/"},
@@ -144,4 +141,4 @@ class RLDemoFlow(L.LightningFlow):
 
 
 if __name__ == "__main__":
-    app = L.LightningApp(RLDemoFlow())
+    app = la.LightningApp(RLDemoFlow())

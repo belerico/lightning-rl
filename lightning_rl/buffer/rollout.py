@@ -2,15 +2,15 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
-import lightning as L
+import lightning.app as la
 import numpy as np
 import torch
-from lightning.storage.payload import Payload
+from lightning.app.storage.payload import Payload
 
 from . import logger
 
 
-class BufferWork(L.LightningWork):
+class BufferWork(la.LightningWork):
     def __init__(self, buffers_to_receive: int, **worker_kwargs):
         super().__init__(**worker_kwargs)
         self.buffer = None
