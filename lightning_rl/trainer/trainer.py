@@ -57,14 +57,18 @@ class Trainer(L.LightningWork):
         optimizer = hydra.utils.instantiate(optimizer_cfg, model.parameters())
         self._agent = hydra.utils.instantiate(agent_cfg, agent_id=self.agent_id, model=model, optimizer=optimizer)
         self.episode_counter = 0
-        self.model_state_dict_path = "lit://" + model_state_dict_path
-        os.makedirs(os.path.dirname(self.model_state_dict_path), exist_ok=True)
+        self.model_state_dict_path = None
+        self.local_model_state_dict_path = model_state_dict_path
         self.max_buffer_length = max_buffer_length
         self.metrics = None
         self.first_time_model_save = False
         self._episodes_delta = 0
 
     def run(self, signal: int, buffers: Optional[List[Payload]] = None):
+        if self.model_state_dict_path is None:
+            self.model_state_dict_path = "lit://" + self.local_model_state_dict_path
+        if not os.path.exists(self.model_state_dict_path):
+            os.makedirs(os.path.dirname(self.model_state_dict_path), exist_ok=True)
         if signal > 0 and not any(buffer is None for buffer in buffers):
             self._episodes_delta += 1
             logger.info("Trainer-{}: received buffer from Players".format(self.agent_id))

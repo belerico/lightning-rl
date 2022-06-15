@@ -58,11 +58,10 @@ class RLTrainFlow(L.LightningFlow):
         self.train_ended = False
 
     def run(self):
-        if not self.trainer.has_started or self.trainer.has_succeeded:
-            if self.players[0].episode_counter == 0 and not self.trainer.first_time_model_save:
-                self.trainer.run(self.players[0].episode_counter)
-            else:
-                self.players.run(self.trainer.episode_counter, self.trainer.model_state_dict_path)
+        if not self.trainer.first_time_model_save:
+            self.trainer.run(0)
+        elif not self.trainer.has_started or self.trainer.has_succeeded:
+            self.players.run(self.trainer.episode_counter, self.trainer.model_state_dict_path)
         if all(player.has_succeeded for player in self.players.players):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
             if self.trainer.has_succeeded:
@@ -128,10 +127,10 @@ class RLDemoFlow(L.LightningFlow):
             self.edit_conf.train_ended = True
 
     def configure_layout(self):
-        tabs = [{"name": "Configurations", "content": self.edit_conf}]
+        tabs = [{"name": "Configure your training", "content": self.edit_conf}]
         if self.train_flow_initialized:
-            tabs += [{"name": "TB Logs", "content": self.train_flow.logger.tensorboard_url}]
-            tabs += [{"name": "Test GIFs", "content": self.gif_renderer}]
+            tabs += [{"name": "Training logs", "content": self.train_flow.logger.tensorboard_url}]
+            tabs += [{"name": "Learned agent", "content": self.gif_renderer}]
             if self.train_flow.show_rl_info:
                 tabs += [
                     {"name": "RL: intro", "content": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/"},

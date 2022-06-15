@@ -15,7 +15,6 @@ pyglet = "1.5.21"
 hydra-core = ">=1.1.1"
 tensorboard = ">=2.8.0"
 streamlit = "^1.9.2"
-torch = ">=1.10.2"
 
 [tool.poetry.dev-dependencies]
 black = {version = ">=22.1.0", allow-prereleases = true}
@@ -23,6 +22,7 @@ flake8 = "4.0.1"
 isort = "5.10.1"
 pre-commit = "2.16.0"
 autoflake = "1.4"
+Pympler = "^1.0.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
