@@ -20,3 +20,4 @@ logs/*
 rendering/*
 synced_model/*
 .vscode
+images/
