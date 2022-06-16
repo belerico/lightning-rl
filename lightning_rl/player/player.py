@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 import gym
 import hydra
-import lightning.app as la
+import lightning as L
 import numpy as np
 import omegaconf
 import torch
@@ -23,10 +23,10 @@ from . import logger
 @dataclass
 class CustomBuildConfig(BuildConfig):
     def build_commands(self):
-        return ["sudo apt-get -y install xvfb"]
+        return ["sudo apt-get -y install xvfb", "sudo apt-get install -y python-opengl"]
 
 
-class Player(la.LightningWork):
+class Player(L.LightningWork):
     """Worker that wraps a gym environment and plays in it.
 
     Args:
@@ -57,7 +57,7 @@ class Player(la.LightningWork):
         keep_last_n: int = -1,
         **work_kwargs
     ) -> None:
-        super(Player, self).__init__(work_kwargs)
+        super(Player, self).__init__(work_kwargs, cloud_build_config=CustomBuildConfig())
         setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
         self._environment = gym.make(self.environment_id)
@@ -81,7 +81,6 @@ class Player(la.LightningWork):
         self.local_rendering_path = local_rendering_path
         os.makedirs(local_rendering_path, exist_ok=True)
         self.test_metrics = {}
-        self._cloud_build_config = CustomBuildConfig()
 
     def get_buffer(self) -> Optional[Payload]:
         return getattr(self, "buffer_{}".format(self.agent_id))
@@ -197,7 +196,7 @@ class Player(la.LightningWork):
         self.episode_counter += 1
 
 
-class PlayersFlow(la.LightningFlow):
+class PlayersFlow(L.LightningFlow):
     def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig):
         super().__init__()
         self.n_players = n_players
