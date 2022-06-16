@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+import shutil
 from typing import List, Optional, Tuple
 
 import gym
@@ -12,6 +12,7 @@ from lightning.app.storage import Drive, Path, Payload
 from lightning.app.structures import List as LightningList
 
 from lightning_rl.buffer.rollout import RolloutBuffer
+from lightning_rl.utils.viz import save_episode_as_gif
 
 from . import logger
 
@@ -41,6 +42,7 @@ class Player(L.LightningWork):
         gamma: List[float] = [0.99],
         agent_id: int = 0,
         log_dir: Optional[str] = None,
+        save_rendering: bool = False,
         local_rendering_path: str = "./rendering",
         keep_last_n: int = -1,
         **work_kwargs
@@ -65,6 +67,7 @@ class Player(L.LightningWork):
         self.episode_counter = 0
         self._keep_last_n = keep_last_n
         self.log_dir = log_dir
+        self.save_rendering = save_rendering
         self.local_rendering_path = local_rendering_path
         os.makedirs(local_rendering_path, exist_ok=True)
         self.test_metrics = {}
@@ -115,11 +118,11 @@ class Player(L.LightningWork):
         """Samples an episode for a single agent in training mode
         Returns:
             RolloutBuffer: Episode data in a RolloutBuffer
-
         """
         observation = self._environment.reset()
         game_done = False
         step_counter = 0
+        frames = []
         total_reward = 0
         while not game_done:
             observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
@@ -129,9 +132,28 @@ class Player(L.LightningWork):
             next_observation, reward, game_done, info = self._environment.step(env_actions)
             total_reward += reward
             observation = next_observation
+            if self.save_rendering:
+                frame = self._environment.render(mode="rgb_array")
+                frames.append(frame)
             step_counter += 1
         self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
+        if self.save_rendering:
+            save_episode_as_gif(
+                frames,
+                path=self.local_rendering_path,
+                episode_counter=episode_counter,
+                keep_last_n=self._keep_last_n,
+            )
+            if drive is not None:
+                if self.log_dir is None:
+                    drive_rendering_path = self.local_rendering_path
+                else:
+                    drive_rendering_path = os.path.join(self.log_dir, self.local_rendering_path)
+                drive_path = os.path.normpath(drive_rendering_path)
+                os.makedirs(drive_path, exist_ok=True)
+                shutil.copytree(self.local_rendering_path, drive_path, dirs_exist_ok=True)
+                drive.put(drive_rendering_path)
 
     @staticmethod
     def get_env_info(environment_id: str) -> Tuple[int, int]:

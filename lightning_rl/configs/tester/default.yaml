@@ -3,4 +3,5 @@ agent_cfg: ${agent}
 model_cfg: ${model}
 environment_id: ${environment.id}
 keep_last_n: 5
+save_rendering: False
 _recursive_: False
