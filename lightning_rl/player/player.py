@@ -1,5 +1,4 @@
 import os
-import shutil
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -9,21 +8,12 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
-from lightning.app import BuildConfig
 from lightning.app.storage import Drive, Path, Payload
 from lightning.app.structures import List as LightningList
-from pyvirtualdisplay import Display
 
 from lightning_rl.buffer.rollout import RolloutBuffer
-from lightning_rl.utils.viz import save_episode_as_gif
 
 from . import logger
-
-
-@dataclass
-class CustomBuildConfig(BuildConfig):
-    def build_commands(self):
-        return ["sudo apt-get -y install xvfb", "sudo apt-get install -y python-opengl"]
 
 
 class Player(L.LightningWork):
@@ -57,7 +47,7 @@ class Player(L.LightningWork):
         keep_last_n: int = -1,
         **work_kwargs
     ) -> None:
-        super(Player, self).__init__(work_kwargs, cloud_build_config=CustomBuildConfig())
+        super(Player, self).__init__(work_kwargs)
         setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
         self._environment = gym.make(self.environment_id)
@@ -130,42 +120,21 @@ class Player(L.LightningWork):
             RolloutBuffer: Episode data in a RolloutBuffer
 
         """
-        with Display() as disp:
-            observation = self._environment.reset()
-            game_done = False
-            step_counter = 0
-            frames = []
-            total_reward = 0
-            while not game_done:
-                observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
-                env_actions = self._agent.select_greedy_action(observation_tensor)
-                env_actions = env_actions.numpy().flatten().tolist()
-                env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
-                next_observation, reward, game_done, info = self._environment.step(env_actions)
-                total_reward += reward
-                observation = next_observation
-                if self.save_rendering:
-                    frame = self._environment.render(mode="rgb_array")
-                    frames.append(frame)
-                step_counter += 1
-            self._environment.close()
+        observation = self._environment.reset()
+        game_done = False
+        step_counter = 0
+        total_reward = 0
+        while not game_done:
+            observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
+            env_actions = self._agent.select_greedy_action(observation_tensor)
+            env_actions = env_actions.numpy().flatten().tolist()
+            env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
+            next_observation, reward, game_done, info = self._environment.step(env_actions)
+            total_reward += reward
+            observation = next_observation
+            step_counter += 1
+        self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
-        if self.save_rendering:
-            save_episode_as_gif(
-                frames,
-                path=self.local_rendering_path,
-                episode_counter=episode_counter,
-                keep_last_n=self._keep_last_n,
-            )
-            if drive is not None:
-                if self.log_dir is None:
-                    drive_rendering_path = self.local_rendering_path
-                else:
-                    drive_rendering_path = os.path.join(self.log_dir, self.local_rendering_path)
-                drive_path = os.path.normpath(drive_rendering_path)
-                os.makedirs(drive_path, exist_ok=True)
-                shutil.copytree(self.local_rendering_path, drive_path, dirs_exist_ok=True)
-                drive.put(drive_rendering_path)
 
     @staticmethod
     def get_env_info(environment_id: str) -> Tuple[int, int]:
