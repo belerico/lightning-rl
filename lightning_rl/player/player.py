@@ -27,7 +27,6 @@ class Player(L.LightningWork):
             that outputs both the policy over actions and the value of the state.
         gamma (np.ndarray): the discount factor. Default: 0.99.
         agent_id (int, optional): the agent id. Defaults to 0.
-        save_rendering (bool, optional): whether to save the rendering. Defaults to False.
         log_dir (str, optional): the log directory of the logger. If specified then the renderings will be saved inside that folder.
             Defaults to None.
         local_rendering_path (str, optional): the local rendering path. Defaults to "./rendering.
@@ -41,7 +40,6 @@ class Player(L.LightningWork):
         model_cfg: omegaconf.DictConfig,
         gamma: List[float] = [0.99],
         agent_id: int = 0,
-        save_rendering: bool = False,
         log_dir: Optional[str] = None,
         local_rendering_path: str = "./rendering",
         keep_last_n: int = -1,
@@ -65,7 +63,6 @@ class Player(L.LightningWork):
         self._gamma = gamma
         self.agent_id = agent_id
         self.episode_counter = 0
-        self.save_rendering = save_rendering
         self._keep_last_n = keep_last_n
         self.log_dir = log_dir
         self.local_rendering_path = local_rendering_path
