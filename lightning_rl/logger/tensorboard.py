@@ -3,12 +3,12 @@ import shutil
 import subprocess
 from typing import Any, Dict, Optional
 
-import lightning.app as la
+import lightning as L
 from lightning.app.storage import Drive, Path
 from pytorch_lightning.loggers import TensorBoardLogger
 
 
-class TensorboardWork(la.LightningWork):
+class TensorboardWork(L.LightningWork):
     """Tensorboard logger as a LightningWork
 
     Args:

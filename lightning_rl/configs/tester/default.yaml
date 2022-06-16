@@ -2,6 +2,6 @@ _target_: lightning_rl.player.player.Player
 agent_cfg: ${agent}
 model_cfg: ${model}
 environment_id: ${environment.id}
-save_rendering: False
 keep_last_n: 5
+save_rendering: False
 _recursive_: False

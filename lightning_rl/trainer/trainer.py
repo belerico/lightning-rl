@@ -2,7 +2,7 @@ import os
 from typing import List, Optional
 
 import hydra
-import lightning.app as la
+import lightning as L
 import numpy as np
 import omegaconf
 import torch
@@ -13,7 +13,7 @@ from lightning_rl.buffer.rollout import RolloutBuffer
 from . import logger
 
 
-class Trainer(la.LightningWork):
+class Trainer(L.LightningWork):
     """Worker that train the agent given the observations received by the Players.
 
     Args:

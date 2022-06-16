@@ -1,6 +1,7 @@
 import os
 
 import hydra
+import lightning as L
 import lightning.app as la
 import omegaconf
 from hydra import compose, initialize_config_dir
@@ -16,7 +17,7 @@ from lightning_rl.utils.utils import get_logger
 logger = get_logger(__name__)
 
 
-class RLTrainFlow(la.LightningFlow):
+class RLTrainFlow(L.LightningFlow):
     def __init__(
         self,
         lightning_rl_drive: Drive,
@@ -82,7 +83,7 @@ class RLTrainFlow(la.LightningFlow):
             self.train_ended = True
 
 
-class RLDemoFlow(la.LightningFlow):
+class RLDemoFlow(L.LightningFlow):
     def __init__(self):
         super().__init__()
         self.lightning_rl_drive = Drive("lit://lightning-rl-drive", allow_duplicates=True)

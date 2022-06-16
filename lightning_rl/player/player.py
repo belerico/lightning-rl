@@ -1,18 +1,15 @@
 import os
 import shutil
-from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import gym
 import hydra
-import lightning.app as la
+import lightning as L
 import numpy as np
 import omegaconf
 import torch
-from lightning.app import BuildConfig
 from lightning.app.storage import Drive, Path, Payload
 from lightning.app.structures import List as LightningList
-from pyvirtualdisplay import Display
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 from lightning_rl.utils.viz import save_episode_as_gif
@@ -20,13 +17,7 @@ from lightning_rl.utils.viz import save_episode_as_gif
 from . import logger
 
 
-@dataclass
-class CustomBuildConfig(BuildConfig):
-    def build_commands(self):
-        return ["sudo apt-get -y install xvfb"]
-
-
-class Player(la.LightningWork):
+class Player(L.LightningWork):
     """Worker that wraps a gym environment and plays in it.
 
     Args:
@@ -37,7 +28,6 @@ class Player(la.LightningWork):
             that outputs both the policy over actions and the value of the state.
         gamma (np.ndarray): the discount factor. Default: 0.99.
         agent_id (int, optional): the agent id. Defaults to 0.
-        save_rendering (bool, optional): whether to save the rendering. Defaults to False.
         log_dir (str, optional): the log directory of the logger. If specified then the renderings will be saved inside that folder.
             Defaults to None.
         local_rendering_path (str, optional): the local rendering path. Defaults to "./rendering.
@@ -51,8 +41,8 @@ class Player(la.LightningWork):
         model_cfg: omegaconf.DictConfig,
         gamma: List[float] = [0.99],
         agent_id: int = 0,
-        save_rendering: bool = False,
         log_dir: Optional[str] = None,
+        save_rendering: bool = False,
         local_rendering_path: str = "./rendering",
         keep_last_n: int = -1,
         **work_kwargs
@@ -75,13 +65,12 @@ class Player(la.LightningWork):
         self._gamma = gamma
         self.agent_id = agent_id
         self.episode_counter = 0
-        self.save_rendering = save_rendering
         self._keep_last_n = keep_last_n
         self.log_dir = log_dir
+        self.save_rendering = save_rendering
         self.local_rendering_path = local_rendering_path
         os.makedirs(local_rendering_path, exist_ok=True)
         self.test_metrics = {}
-        self._cloud_build_config = CustomBuildConfig()
 
     def get_buffer(self) -> Optional[Payload]:
         return getattr(self, "buffer_{}".format(self.agent_id))
@@ -129,27 +118,25 @@ class Player(la.LightningWork):
         """Samples an episode for a single agent in training mode
         Returns:
             RolloutBuffer: Episode data in a RolloutBuffer
-
         """
-        with Display() as disp:
-            observation = self._environment.reset()
-            game_done = False
-            step_counter = 0
-            frames = []
-            total_reward = 0
-            while not game_done:
-                observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
-                env_actions = self._agent.select_greedy_action(observation_tensor)
-                env_actions = env_actions.numpy().flatten().tolist()
-                env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
-                next_observation, reward, game_done, info = self._environment.step(env_actions)
-                total_reward += reward
-                observation = next_observation
-                if self.save_rendering:
-                    frame = self._environment.render(mode="rgb_array")
-                    frames.append(frame)
-                step_counter += 1
-            self._environment.close()
+        observation = self._environment.reset()
+        game_done = False
+        step_counter = 0
+        frames = []
+        total_reward = 0
+        while not game_done:
+            observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
+            env_actions = self._agent.select_greedy_action(observation_tensor)
+            env_actions = env_actions.numpy().flatten().tolist()
+            env_actions = env_actions[0] if len(env_actions) == 1 else env_actions
+            next_observation, reward, game_done, info = self._environment.step(env_actions)
+            total_reward += reward
+            observation = next_observation
+            if self.save_rendering:
+                frame = self._environment.render(mode="rgb_array")
+                frames.append(frame)
+            step_counter += 1
+        self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
         if self.save_rendering:
             save_episode_as_gif(
@@ -197,7 +184,7 @@ class Player(la.LightningWork):
         self.episode_counter += 1
 
 
-class PlayersFlow(la.LightningFlow):
+class PlayersFlow(L.LightningFlow):
     def __init__(self, n_players: int, player_cfg: omegaconf.DictConfig):
         super().__init__()
         self.n_players = n_players

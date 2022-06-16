@@ -755,11 +755,11 @@ testing = ["Django (<3.1)", "colorama", "docopt", "pytest (<7.0.0)"]
 
 [[package]]
 name = "jinja2"
-version = "3.1.2"
+version = "3.0.3"
 description = "A very fast and expressive template engine."
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.6"
 
 [package.dependencies]
 MarkupSafe = ">=2.0"
@@ -930,7 +930,7 @@ python-versions = "*"
 
 [[package]]
 name = "nbclient"
-version = "0.6.4"
+version = "0.6.3"
 description = "A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor."
 category = "main"
 optional = false
@@ -940,7 +940,7 @@ python-versions = ">=3.7.0"
 jupyter-client = ">=6.1.5"
 nbformat = ">=5.0"
 nest-asyncio = "*"
-traitlets = ">=5.2.2"
+traitlets = ">=5.0.0"
 
 [package.extras]
 sphinx = ["autodoc-traits", "mock", "moto", "myst-parser", "Sphinx (>=1.7)", "sphinx-book-theme"]
@@ -1819,14 +1819,14 @@ telegram = ["requests"]
 
 [[package]]
 name = "traitlets"
-version = "5.2.2.post1"
-description = ""
+version = "5.1.1"
+description = "Traitlets Python configuration system"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 
 [package.extras]
-test = ["pre-commit", "pytest"]
+test = ["pytest"]
 
 [[package]]
 name = "typing-extensions"
@@ -2528,8 +2528,8 @@ jedi = [
     {file = "jedi-0.18.1.tar.gz", hash = "sha256:74137626a64a99c8eb6ae5832d99b3bdd7d29a3850fe2aa80a4126b2a7d949ab"},
 ]
 jinja2 = [
-    {file = "Jinja2-3.1.2-py3-none-any.whl", hash = "sha256:6088930bfe239f0e6710546ab9c19c9ef35e29792895fed6e6e31a023a182a61"},
-    {file = "Jinja2-3.1.2.tar.gz", hash = "sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852"},
+    {file = "Jinja2-3.0.3-py3-none-any.whl", hash = "sha256:077ce6014f7b40d03b47d1f1ca4b0fc8328a692bd284016f806ed0eaca390ad8"},
+    {file = "Jinja2-3.0.3.tar.gz", hash = "sha256:611bb273cd68f3b993fabdc4064fc858c5b47a973cb5aa7999ec1ba405c87cd7"},
 ]
 jsonschema = [
     {file = "jsonschema-4.6.0-py3-none-any.whl", hash = "sha256:1c92d2db1900b668201f1797887d66453ab1fbfea51df8e4b46236689c427baf"},
@@ -2757,8 +2757,8 @@ mypy-extensions = [
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
 ]
 nbclient = [
-    {file = "nbclient-0.6.4-py3-none-any.whl", hash = "sha256:f251bba200a2b401a061dfd700a7a70b5772f664fb49d4a2d3e5536ec0e98c76"},
-    {file = "nbclient-0.6.4.tar.gz", hash = "sha256:cdef7757cead1735d2c70cc66095b072dced8a1e6d1c7639ef90cd3e04a11f2e"},
+    {file = "nbclient-0.6.3-py3-none-any.whl", hash = "sha256:2747ac9b385720d8a6c34f2f71e72cbe64aec6cadaadcc064a4df0b0e99c5874"},
+    {file = "nbclient-0.6.3.tar.gz", hash = "sha256:b80726fc1fb89a0e8f8be1e77e28d0026b1e8ed90bc143c8a0c7622e4f8cdd9e"},
 ]
 nbconvert = [
     {file = "nbconvert-6.5.0-py3-none-any.whl", hash = "sha256:c56dd0b8978a1811a5654f74c727ff16ca87dd5a43abd435a1c49b840fcd8360"},
@@ -3399,8 +3399,8 @@ tqdm = [
     {file = "tqdm-4.64.0.tar.gz", hash = "sha256:40be55d30e200777a307a7585aee69e4eabb46b4ec6a4b4a5f2d9f11e7d5408d"},
 ]
 traitlets = [
-    {file = "traitlets-5.2.2.post1-py3-none-any.whl", hash = "sha256:1530d04badddc6a73d50b7ee34667d4b96914da352109117b4280cb56523a51b"},
-    {file = "traitlets-5.2.2.post1.tar.gz", hash = "sha256:74803a1baa59af70f023671d86d5c7a834c931186df26d50d362ee6a1ff021fd"},
+    {file = "traitlets-5.1.1-py3-none-any.whl", hash = "sha256:2d313cc50a42cd6c277e7d7dc8d4d7fedd06a2c215f78766ae7b1a66277e0033"},
+    {file = "traitlets-5.1.1.tar.gz", hash = "sha256:059f456c5a7c1c82b98c2e8c799f39c9b8128f6d0d46941ee118daace9eb70c7"},
 ]
 typing-extensions = [
     {file = "typing_extensions-4.2.0-py3-none-any.whl", hash = "sha256:6657594ee297170d19f67d55c05852a874e7eb634f4f753dbd667855e07c1708"},
