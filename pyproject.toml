@@ -16,7 +16,6 @@ hydra-core = ">=1.1.1"
 tensorboard = ">=2.8.0"
 streamlit = "^1.9.2"
 PyVirtualDisplay = "^3.0"
-lightning = "^2022.6.15"
 
 [tool.poetry.dev-dependencies]
 black = {version = ">=22.1.0", allow-prereleases = true}
