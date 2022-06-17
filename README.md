@@ -1,4 +1,4 @@
-# Lightning Reinforcement Learning Demo
+# ⚡️ Lightning Reinforcement Learning Template 🤖
 
 Reinforcement learning has come a long way, evolving and maturing in several directions. It has gradually become one of the most active research areas in machine learning, artificial intelligence, and neural network research. The field has developed strong mathematical foundations and impressive applications. The computational study of reinforcement learning is now a large field, with hundreds of active researchers around the world in diverse disciplines such as psychology, control theory, artificial intelligence, and neuroscience. Particularly important have been the contributions establishing and developing the relationships to the theory of optimal control and dynamic
 programming. The overall problem of learning from interaction to achieve goals is still far from being solved, but our understanding of it has improved significantly  

@@ -129,7 +129,8 @@ class RLDemoFlow(L.LightningFlow):
         tabs = [{"name": "Configure your training", "content": self.edit_conf}]
         if self.train_flow_initialized:
             tabs += [{"name": "Training logs", "content": self.train_flow.logger.tensorboard_url}]
-            tabs += [{"name": "Learned agent", "content": self.gif_renderer}]
+            if self.train_flow.tester.is_display_available:
+                tabs += [{"name": "Learned agent", "content": self.gif_renderer}]
             if self.train_flow.show_rl_info:
                 tabs += [
                     {"name": "RL: intro", "content": "https://lilianweng.github.io/posts/2018-02-19-rl-overview/"},

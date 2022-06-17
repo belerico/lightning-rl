@@ -1,5 +1,6 @@
 import os
 import shutil
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import gym
@@ -10,6 +11,7 @@ import omegaconf
 import torch
 from lightning.app.storage import Drive, Path, Payload
 from lightning.app.structures import List as LightningList
+from lightning_app import BuildConfig
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 from lightning_rl.utils.viz import save_episode_as_gif
@@ -47,7 +49,7 @@ class Player(L.LightningWork):
         keep_last_n: int = -1,
         **work_kwargs
     ) -> None:
-        super(Player, self).__init__(work_kwargs)
+        super(Player, self).__init__(**work_kwargs)
         setattr(self, "buffer_{}".format(agent_id), None)
         self.environment_id = environment_id
         self._environment = gym.make(self.environment_id)
@@ -69,6 +71,7 @@ class Player(L.LightningWork):
         self.log_dir = log_dir
         self.save_rendering = save_rendering
         self.local_rendering_path = local_rendering_path
+        self.is_display_available = os.environ.get("DISPLAY", None) is not None
         os.makedirs(local_rendering_path, exist_ok=True)
         self.test_metrics = {}
 
@@ -124,6 +127,8 @@ class Player(L.LightningWork):
         step_counter = 0
         frames = []
         total_reward = 0
+        if self.save_rendering and not self.is_display_available:
+            logger.warn("DISPLAY is not available, skipping rendering!")
         while not game_done:
             observation_tensor = torch.from_numpy(observation).unsqueeze(0).float()
             env_actions = self._agent.select_greedy_action(observation_tensor)
@@ -132,13 +137,13 @@ class Player(L.LightningWork):
             next_observation, reward, game_done, info = self._environment.step(env_actions)
             total_reward += reward
             observation = next_observation
-            if self.save_rendering:
+            if self.save_rendering and self.is_display_available:
                 frame = self._environment.render(mode="rgb_array")
                 frames.append(frame)
             step_counter += 1
-        self._environment.close()
+            self._environment.close()
         self.test_metrics["Test/sum_rew"] = total_reward
-        if self.save_rendering:
+        if self.save_rendering and self.is_display_available:
             save_episode_as_gif(
                 frames,
                 path=self.local_rendering_path,
