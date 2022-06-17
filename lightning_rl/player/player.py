@@ -1,6 +1,5 @@
 import os
 import shutil
-from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import gym
@@ -11,7 +10,6 @@ import omegaconf
 import torch
 from lightning.app.storage import Drive, Path, Payload
 from lightning.app.structures import List as LightningList
-from lightning_app import BuildConfig
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 from lightning_rl.utils.viz import save_episode_as_gif
