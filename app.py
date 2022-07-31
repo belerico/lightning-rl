@@ -5,6 +5,7 @@ import lightning as L
 import lightning.app as la
 import omegaconf
 from hydra import compose, initialize_config_dir
+from lightning.app.runners import MultiProcessRuntime
 from lightning.app.storage import Drive
 
 from lightning_rl.frontend.config import EditConfUI
@@ -37,11 +38,20 @@ class RLTrainFlow(L.LightningFlow):
         self.test_every_n_episodes = test_every_n_episodes
         self.show_rl_info = show_rl_info
         input_dim, action_dim = Player.get_env_info(player_cfg.environment_id)
-        self.trainer: Trainer = hydra.utils.instantiate(
+        self.trainer0: Trainer = hydra.utils.instantiate(
             trainer_cfg,
             input_dim=input_dim,
             action_dim=action_dim,
             agent_id=0,
+            num_players=num_players,
+            cache_calls=True,
+            parallel=True,
+        )
+        self.trainer1: Trainer = hydra.utils.instantiate(
+            trainer_cfg,
+            input_dim=input_dim,
+            action_dim=action_dim,
+            agent_id=1,
             num_players=num_players,
             cache_calls=True,
             parallel=True,
@@ -53,32 +63,60 @@ class RLTrainFlow(L.LightningFlow):
         self.train_ended = False
 
     def run(self):
-        if not self.trainer.first_time_model_save:
-            self.trainer.run(0)
-        elif not self.trainer.has_started or self.trainer.has_succeeded:
-            self.players.run(self.trainer.episode_counter, self.trainer.checkpoint_path)
-        if all(player.has_succeeded for player in self.players.players):
-            self.trainer.run(self.players[0].episode_counter, self.players.buffers())
-            if self.trainer.has_succeeded:
-                if self.trainer.metrics is not None:
-                    self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
-                self.logger.run(
-                    self.trainer.episode_counter,
-                    self.trainer.metrics,
-                    self.lightning_rl_drive,
-                    self.trainer.checkpoint_path,
+        if not (self.trainer0.dist_initialized and self.trainer1.dist_initialized):
+            self.trainer0.run(-1, None, world_size=2, rank=0, rank_zero_init=True)
+            if self.trainer0.internal_ip:
+                self.trainer0.run(
+                    -1,
+                    None,
+                    main_address=self.trainer0.internal_ip,
+                    main_port=self.trainer0.port,
+                    world_size=2,
+                    rank=0,
+                    init_process_group=True,
                 )
-        if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
+                self.trainer1.run(
+                    -1,
+                    None,
+                    main_address=self.trainer0.internal_ip,
+                    main_port=self.trainer0.port,
+                    world_size=2,
+                    rank=1,
+                    init_process_group=True,
+                )
+        elif not self.trainer0.first_time_model_save:
+            self.trainer0.run(0)
+        elif (
+            not self.trainer0.has_started
+            and self.trainer1.has_started
+            or self.trainer0.has_succeeded
+            and self.trainer1.has_succeeded
+        ):
+            self.players.run(self.trainer0.episode_counter, self.trainer0.checkpoint_path)
+        if all(player.has_succeeded for player in self.players.players):
+            self.trainer0.run(self.players[0].episode_counter, self.players.buffers()[:1])
+            self.trainer1.run(self.players[0].episode_counter, self.players.buffers()[1:])
+            if self.trainer0.has_succeeded:
+                if self.trainer0.metrics is not None:
+                    self.trainer0.metrics.update({"Game/Train episodes": self.trainer0.episode_counter})
+                self.logger.run(
+                    self.trainer0.episode_counter,
+                    self.trainer0.metrics,
+                    self.lightning_rl_drive,
+                    self.trainer0.checkpoint_path,
+                )
+        if self.trainer0.episode_counter > 0 and self.trainer0.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(
-                self.trainer.episode_counter, self.trainer.checkpoint_path, self.lightning_rl_drive, test=True
+                self.trainer0.episode_counter, self.trainer0.checkpoint_path, self.lightning_rl_drive, test=True
             )
             if self.tester.has_succeeded:
                 self.tester.test_metrics.update({"Game/Test episodes": self.tester.episode_counter})
                 self.logger.run(self.tester.episode_counter, self.tester.test_metrics, self.lightning_rl_drive)
-        if self.trainer.episode_counter >= self.max_episodes:
+        if self.trainer0.episode_counter >= self.max_episodes:
             self.logger.stop()
             self.tester.stop()
-            self.trainer.stop()
+            self.trainer0.stop()
+            self.trainer1.stop()
             self.players.stop()
             self.train_ended = True
 
@@ -120,7 +158,7 @@ class RLDemoFlow(L.LightningFlow):
                 self.train_flow_initialized = True
             else:
                 self.train_flow.run()
-                self.edit_conf.run(self.train_flow.trainer.episode_counter)
+                self.edit_conf.run(self.train_flow.trainer0.episode_counter)
                 self.edit_conf.train_ended = self.train_flow.train_ended
         if self.train_flow_initialized and self.train_flow.train_ended:
             self.edit_conf.train_ended = True
@@ -144,3 +182,4 @@ class RLDemoFlow(L.LightningFlow):
 
 if __name__ == "__main__":
     app = la.LightningApp(RLDemoFlow())
+    MultiProcessRuntime(app).dispatch()

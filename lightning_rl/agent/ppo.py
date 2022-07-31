@@ -1,6 +1,8 @@
 from typing import Optional
 
+import omegaconf
 import torch
+import torch.distributed
 import torch.nn.functional as F
 from torch.utils.data.sampler import RandomSampler, SequentialSampler
 from torchmetrics import MeanMetric
@@ -23,12 +25,15 @@ class PPO(Agent):
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
         agent_id (int, optional): The agent id.
+        distributed (bool, optional): Whether to initialized the agent with PyTorch DistributedDataParallel
     """
 
     def __init__(
         self,
-        model: torch.nn.Module,
-        optimizer: Optional[torch.optim.Optimizer] = None,
+        input_dim: int,
+        action_dim: int,
+        model_cfg: omegaconf.DictConfig,
+        optimizer_cfg: omegaconf.DictConfig,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         clip_coeff: float = 0.2,
         epochs: int = 10,
@@ -36,14 +41,18 @@ class PPO(Agent):
         shuffle: bool = True,
         clip_gradients: Optional[float] = 0.0,
         agent_id: Optional[int] = None,
+        distributed: bool = False,
     ):
         super(PPO, self).__init__(
-            model=model,
-            optimizer=optimizer,
+            input_dim=input_dim,
+            action_dim=action_dim,
+            model_cfg=model_cfg,
+            optimizer_cfg=optimizer_cfg,
             scheduler=scheduler,
             batch_size=batch_size,
             clip_gradients=clip_gradients,
             agent_id=agent_id,
+            distributed=distributed,
         )
         self.clip_coeff = clip_coeff
         self.epochs = epochs
@@ -77,17 +86,17 @@ class PPO(Agent):
                 policy_loss_1 = advantages * ratio
                 policy_loss_2 = advantages * torch.clamp(ratio, 1 - self.clip_coeff, 1 + self.clip_coeff)
                 policy_loss = -torch.min(policy_loss_1, policy_loss_2).mean()
-                self.total_policy_loss.update(policy_loss)
+                self.total_policy_loss(policy_loss)
 
                 value_loss = F.mse_loss(values, returns)
-                self.total_value_loss.update(value_loss)
+                self.total_value_loss(value_loss)
 
                 loss = policy_loss + value_loss
-                self.total_loss.update(loss)
+                self.total_loss(loss)
 
                 self.backward(loss)
                 grad_norm = self.optimize_step()
-                self.total_grads_norm.update(grad_norm)
+                self.total_grads_norm(grad_norm)
 
         self.metrics["Loss/Agent-{}/loss".format(self.agent_id)] = self.total_loss.compute().item()
         self.metrics["Loss/Agent-{}/value_loss".format(self.agent_id)] = self.total_value_loss.compute().item()

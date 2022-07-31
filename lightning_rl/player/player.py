@@ -10,6 +10,7 @@ import omegaconf
 import torch
 from lightning.app.storage import Drive, Path, Payload
 from lightning.app.structures import List as LightningList
+from lightning_rl.agent.base import Agent
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 from lightning_rl.utils.viz import save_episode_as_gif
@@ -48,14 +49,22 @@ class Player(L.LightningWork):
         **work_kwargs
     ) -> None:
         super(Player, self).__init__(**work_kwargs)
-        setattr(self, "buffer_{}".format(agent_id), None)
-        self.environment_id = environment_id
-        self._environment = gym.make(self.environment_id)
+
+        # Private attributes
+        self._environment_id = environment_id
+        self._environment = gym.make(self._environment_id)
         self._environment.metadata["render_modes"] = ["rgb_array"]
         self._environment.metadata["render_fps"] = 120
         input_dim, action_dim = Player.get_env_info(environment_id)
-        model = hydra.utils.instantiate(model_cfg, input_dim=input_dim, action_dim=action_dim)
-        self._agent = hydra.utils.instantiate(agent_cfg, model=model, optimizer=None)
+        self._agent: Agent = hydra.utils.instantiate(
+            agent_cfg,
+            input_dim=input_dim,
+            action_dim=action_dim,
+            model_cfg=model_cfg,
+            optimizer_cfg=None,
+            distributed=False,
+            _recursive_=False
+        )
         if isinstance(gamma, list):
             gamma = np.array(gamma)
             if gamma.ndim <= 1:
@@ -63,9 +72,12 @@ class Player(L.LightningWork):
             else:
                 raise ValueError("gamma must be a 1D array")
         self._gamma = gamma
+        self._keep_last_n = keep_last_n
+
+        # Public attributes
+        setattr(self, "buffer_{}".format(agent_id), None)
         self.agent_id = agent_id
         self.episode_counter = 0
-        self._keep_last_n = keep_last_n
         self.log_dir = log_dir
         self.save_rendering = save_rendering
         self.local_rendering_path = local_rendering_path

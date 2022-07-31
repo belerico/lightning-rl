@@ -1,5 +1,6 @@
 from typing import Optional
 
+import omegaconf
 import torch
 import torch.nn.functional as F
 
@@ -18,24 +19,31 @@ class A2C(Agent):
         clip_gradients (float, optional): clip parameter for .nn.utils.clip_grad_norm_. Does not clip if the value
             is None or smaller than 0. Default is 0.0.
         agent_id (int, optional): The agent id.
+        distributed (bool, optional): Whether to initialized the agent with PyTorch DistributedDataParallel
     """
 
     def __init__(
         self,
-        model: torch.nn.Module,
-        optimizer: Optional[torch.optim.Optimizer] = None,
+        input_dim: int,
+        action_dim: int,
+        model_cfg: omegaconf.DictConfig,
+        optimizer_cfg: omegaconf.DictConfig,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         batch_size: int = 32,
         clip_gradients: Optional[float] = 0.0,
         agent_id: Optional[int] = None,
+        distributed: bool = False,
     ):
         super(A2C, self).__init__(
-            model=model,
-            optimizer=optimizer,
+            input_dim=input_dim,
+            action_dim=action_dim,
+            model_cfg=model_cfg,
+            optimizer_cfg=optimizer_cfg,
             scheduler=scheduler,
             batch_size=batch_size,
             clip_gradients=clip_gradients,
             agent_id=agent_id,
+            distributed=distributed,
         )
 
     def train_step(self) -> None:
