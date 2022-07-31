@@ -135,5 +135,5 @@ synced_model/
 buffer_*
 rendering/
 images/arch.xml
-.vscode
+.vscode/
 .hydra
