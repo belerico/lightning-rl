@@ -15,6 +15,8 @@ pyglet = "1.5.21"
 hydra-core = ">=1.1.1"
 tensorboard = ">=2.8.0"
 streamlit = "^1.9.2"
+lightning = "^2022.7.18"
+mistune = ">=2.0.3"
 
 [tool.poetry.dev-dependencies]
 black = {version = ">=22.1.0", allow-prereleases = true}
