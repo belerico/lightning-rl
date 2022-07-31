@@ -170,7 +170,7 @@ traitlets==5.1.1
 typing_extensions==4.2.0
 tzdata==2022.1
 tzlocal==4.2
-ujson==5.3.0
+ujson==5.4.0
 urllib3==1.26.9
 uvicorn==0.17.6
 uvloop==0.16.0
