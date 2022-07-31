@@ -86,11 +86,8 @@ class RLTrainFlow(L.LightningFlow):
                 )
         elif not self.trainer0.first_time_model_save:
             self.trainer0.run(0)
-        elif (
-            not self.trainer0.has_started
-            and self.trainer1.has_started
-            or self.trainer0.has_succeeded
-            and self.trainer1.has_succeeded
+        elif (not self.trainer0.has_started and not self.trainer1.has_started) or (
+            self.trainer0.has_succeeded and self.trainer1.has_succeeded
         ):
             self.players.run(self.trainer0.episode_counter, self.trainer0.checkpoint_path)
         if all(player.has_succeeded for player in self.players.players):
