@@ -2,10 +2,9 @@ import os
 
 import hydra
 import lightning as L
-import lightning.app as la
 import omegaconf
 from hydra import compose, initialize_config_dir
-from lightning.app.storage import Drive
+from lightning_app.storage import Drive
 
 from lightning_rl.frontend.config import EditConfUI
 from lightning_rl.frontend.gif import GIFRender
@@ -48,7 +47,7 @@ class RLTrainFlow(L.LightningFlow):
         )
         self.tester: Player = hydra.utils.instantiate(tester_cfg, agent_id=0, cache_calls=True, parallel=True)
         self.players = PlayersFlow(self.num_players, player_cfg)
-        self.logger = TensorboardWork(parallel=True, cache_calls=True)
+        self.logger = TensorboardWork(parallel=False, cache_calls=False)
         self.tester.log_dir = self.logger.tensorboard_log_dir
         self.train_ended = False
 
@@ -59,15 +58,14 @@ class RLTrainFlow(L.LightningFlow):
             self.players.run(self.trainer.episode_counter, self.trainer.checkpoint_path)
         if all(player.has_succeeded for player in self.players.players):
             self.trainer.run(self.players[0].episode_counter, self.players.buffers())
-            if self.trainer.has_succeeded:
-                if self.trainer.metrics is not None:
-                    self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
-                self.logger.run(
-                    self.trainer.episode_counter,
-                    self.trainer.metrics,
-                    self.lightning_rl_drive,
-                    self.trainer.checkpoint_path,
-                )
+            if self.trainer.metrics is not None:
+                self.trainer.metrics.update({"Game/Train episodes": self.trainer.episode_counter})
+            self.logger.run(
+                self.trainer.episode_counter,
+                self.trainer.metrics,
+                self.lightning_rl_drive,
+                self.trainer.checkpoint_path,
+            )
         if self.trainer.episode_counter > 0 and self.trainer.episode_counter % self.test_every_n_episodes == 0:
             self.tester.run(
                 self.trainer.episode_counter, self.trainer.checkpoint_path, self.lightning_rl_drive, test=True
@@ -143,4 +141,4 @@ class RLDemoFlow(L.LightningFlow):
 
 
 if __name__ == "__main__":
-    app = la.LightningApp(RLDemoFlow())
+    app = L.LightningApp(RLDemoFlow())

@@ -4,7 +4,7 @@ import subprocess
 from typing import Any, Dict, Optional
 
 import lightning as L
-from lightning.app.storage import Drive, Path
+from lightning_app.storage import Drive, Path
 from pytorch_lightning.loggers import TensorBoardLogger
 
 

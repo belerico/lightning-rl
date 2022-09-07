@@ -8,8 +8,8 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
-from lightning.app.storage import Drive, Path, Payload
-from lightning.app.structures import List as LightningList
+from lightning_app.storage import Drive, Path, Payload
+from lightning_app.structures import List as LightningList
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 from lightning_rl.utils.viz import save_episode_as_gif

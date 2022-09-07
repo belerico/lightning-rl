@@ -8,8 +8,8 @@ programming. The overall problem of learning from interaction to achieve goals i
 ## Installation
 
 1. Get [poetry](https://python-poetry.org/docs/#installation)
-2. Run `poetry install`
-3. Get [lightning](https://lightning.ai/lightning-docs/)
+2. Run `poetry install` pr `poetry update`
+3. Get [lightning](https://lightning_appai/lightning-docs/)
 4. Run `lightning run app app.py`
 
 One can also install it using the standard `requirements.txt` with `python -m pip install -r requirements.txt`

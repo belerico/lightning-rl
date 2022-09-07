@@ -3,9 +3,9 @@ from typing import Optional
 
 import lightning as L
 import streamlit as st
-from lightning.app.frontend.stream_lit import StreamlitFrontend
-from lightning.app.storage import Drive
-from lightning.app.utilities.state import AppState
+from lightning_app.frontend.stream_lit import StreamlitFrontend
+from lightning_app.storage import Drive
+from lightning_app.utilities.state import AppState
 
 from lightning_rl import ROOT_DIR
 

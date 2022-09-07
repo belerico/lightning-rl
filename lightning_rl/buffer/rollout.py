@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 import lightning as L
 import numpy as np
 import torch
-from lightning.app.storage.payload import Payload
+from lightning_app.storage.payload import Payload
 
 from . import logger
 

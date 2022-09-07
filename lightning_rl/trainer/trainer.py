@@ -6,7 +6,7 @@ import lightning as L
 import numpy as np
 import omegaconf
 import torch
-from lightning.app.storage.payload import Payload
+from lightning_app.storage.payload import Payload
 
 from lightning_rl.buffer.rollout import RolloutBuffer
 
